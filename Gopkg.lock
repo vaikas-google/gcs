@@ -769,18 +769,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2c842a1e0aed96fd732b535514556323a6f5edfded3b63e5e0ab1bce188aa54"
+  digest = "1:03a96603922fc1f6895ae083e1e16d943b55ef0656b56965351bd87e7d90485f"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
   pruneopts = "NUT"
-  revision = "e3762e86a74c878ffed47484592986685639c2cd"
+  revision = "0317810137be915b9cf888946c6e115c1bfac693"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "cloud.google.com/go/scheduler/apiv1beta1",
-    "github.com/google/uuid",
     "github.com/knative/pkg/apis",
     "github.com/knative/pkg/apis/duck",
     "github.com/knative/pkg/apis/duck/v1alpha1",

@@ -24,14 +24,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/vaikas-google/csr/pkg/apis/cloudschedulersource/v1alpha1"
+	"github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
 )
 
 // MakeService creates the spec for, but does not create, a Service
 // (Receive Adapter) for a given CloudSchedulerSource.
-func MakeService(source *v1alpha1.CloudSchedulerSource, receiveAdapterImage string) *servingv1alpha1.Service {
+func MakeService(source *v1alpha1.GCSSource, receiveAdapterImage string) *servingv1alpha1.Service {
 	labels := map[string]string{
-		"receive-adapter": "cloudschedulersource",
+		"receive-adapter": "gcssource",
 	}
 	sinkURI := source.Status.SinkURI
 	env := []corev1.EnvVar{

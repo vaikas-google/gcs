@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cloudschedulersource
+package gcs
 
 import (
 	"bytes"
@@ -35,12 +35,12 @@ import (
 	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	servingclientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	"github.com/vaikas-google/csr/pkg/apis/cloudschedulersource/v1alpha1"
-	clientset "github.com/vaikas-google/csr/pkg/client/clientset/versioned"
-	cloudschedulersourcescheme "github.com/vaikas-google/csr/pkg/client/clientset/versioned/scheme"
-	informers "github.com/vaikas-google/csr/pkg/client/informers/externalversions/cloudschedulersource/v1alpha1"
-	listers "github.com/vaikas-google/csr/pkg/client/listers/cloudschedulersource/v1alpha1"
-	"github.com/vaikas-google/csr/pkg/reconciler/cloudschedulersource/resources"
+	"github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
+	clientset "github.com/vaikas-google/gcs/pkg/client/clientset/versioned"
+	gcsscheme "github.com/vaikas-google/gcs/pkg/client/clientset/versioned/scheme"
+	informers "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/gcs/v1alpha1"
+	listers "github.com/vaikas-google/gcs/pkg/client/listers/gcs/v1alpha1"
+	"github.com/vaikas-google/gcs/pkg/reconciler/gcs/resources"
 	schedulerpb "google.golang.org/genproto/googleapis/cloud/scheduler/v1beta1"
 	"google.golang.org/grpc/codes"
 	gstatus "google.golang.org/grpc/status"
@@ -51,17 +51,17 @@ import (
 )
 
 const (
-	controllerAgentName = "cloudschedulersource-controller"
+	controllerAgentName = "gcs-controller"
 	finalizerName       = controllerAgentName
 )
 
-// Reconciler is the controller implementation for Cloudschedulersource resources
+// Reconciler is the controller implementation for Gcssource resources
 type Reconciler struct {
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
-	// cloudschedulersourceclientset is a clientset for our own API group
-	cloudschedulersourceclientset clientset.Interface
-	cloudschedulersourcesLister   listers.CloudSchedulerSourceLister
+	// gcssourceclientset is a clientset for our own API group
+	gcssourceclientset clientset.Interface
+	gcssourcesLister   listers.GcssourceLister
 
 	// We use dynamic client for Duck type related stuff.
 	dynamicClient dynamic.Interface
@@ -69,9 +69,6 @@ type Reconciler struct {
 	// For dealing with Service.serving.knative.dev
 	servingClient   servingclientset.Interface
 	servingInformer servinginformers.ServiceInformer
-
-	// Receive Adapter Image.
-	raImage string
 
 	// Sugared logger is easier to use but is not as performant as the
 	// raw logger. In performance critical paths, call logger.Desugar()
@@ -85,50 +82,48 @@ type Reconciler struct {
 var _ controller.Reconciler = (*Reconciler)(nil)
 
 func init() {
-	// Add cloudschedulersource-controller types to the default Kubernetes Scheme so Events can be
-	// logged for cloudschedulersource-controller types.
-	cloudschedulersourcescheme.AddToScheme(scheme.Scheme)
+	// Add gcssource-controller types to the default Kubernetes Scheme so Events can be
+	// logged for gcssource-controller types.
+	gcssourcescheme.AddToScheme(scheme.Scheme)
 }
 
-// NewController returns a new cloudschedulersource controller
+// NewController returns a new gcssource controller
 func NewController(
 	logger *zap.SugaredLogger,
 	kubeclientset kubernetes.Interface,
 	dynamicClient dynamic.Interface,
-	cloudschedulersourceclientset clientset.Interface,
-	cloudschedulersourceInformer informers.CloudSchedulerSourceInformer,
+	gcssourceclientset clientset.Interface,
+	gcssourceInformer informers.GcssourceInformer,
 	servingclientset servingclientset.Interface,
 	servingsourceInformer servinginformers.ServiceInformer,
-	raImage string,
 ) *controller.Impl {
 
 	// Enrich the logs with controller name
 	logger = logger.Named(controllerAgentName).With(zap.String(logkey.ControllerType, controllerAgentName))
 
 	r := &Reconciler{
-		kubeclientset:                 kubeclientset,
-		dynamicClient:                 dynamicClient,
-		cloudschedulersourceclientset: cloudschedulersourceclientset,
-		cloudschedulersourcesLister:   cloudschedulersourceInformer.Lister(),
-		servingClient:                 servingclientset,
-		raImage:                       raImage,
-		Logger:                        logger,
+		kubeclientset:      kubeclientset,
+		dynamicClient:      dynamicClient,
+		gcssourceclientset: gcssourceclientset,
+		gcssourcesLister:   gcssourceInformer.Lister(),
+		servingClient:      servingclientset,
+		Logger:             logger,
 	}
 	statsExporter, err := controller.NewStatsReporter(controllerAgentName)
 	if nil != err {
 		logger.Fatalf("Couldn't create stats exporter: %s", err)
 	}
-	impl := controller.NewImpl(r, logger, "CloudSchedulerSources", statsExporter)
+	impl := controller.NewImpl(r, logger, "Gcssources", statsExporter)
 
 	logger.Info("Setting up event handlers")
 
-	// Set up an event handler for when CloudSchedulerSource resources change
-	cloudschedulersourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// Set up an event handler for when Gcssource resources change
+	gcssourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 	})
 
-	// Set up an event handler for when CloudSchedulerSource owned Service resources change.
+	// Set up an event handler for when Gcssource owned Service resources change.
 	// Basically whenever a Service controlled by us is chaned, we want to know about it.
 	servingsourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.EnqueueControllerOf,
@@ -148,11 +143,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
-	// Get the CloudSchedulerSource resource with this namespace/name
-	original, err := c.cloudschedulersourcesLister.CloudSchedulerSources(namespace).Get(name)
+	// Get the Gcssource resource with this namespace/name
+	original, err := c.gcssourcesLister.Gcssources(namespace).Get(name)
 	if errors.IsNotFound(err) {
-		// The CloudSchedulerSource resource may no longer exist, in which case we stop processing.
-		runtime.HandleError(fmt.Errorf("cloudschedulersource '%s' in work queue no longer exists", key))
+		// The Gcssource resource may no longer exist, in which case we stop processing.
+		runtime.HandleError(fmt.Errorf("gcssource '%s' in work queue no longer exists", key))
 		return nil
 	} else if err != nil {
 		return err
@@ -161,7 +156,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	csr := original.DeepCopy()
 
-	err = c.reconcileCloudSchedulerSource(ctx, csr)
+	err = c.reconcileGcssource(ctx, csr)
 
 	if equality.Semantic.DeepEqual(original.Status, csr.Status) &&
 		equality.Semantic.DeepEqual(original.ObjectMeta, csr.ObjectMeta) {
@@ -177,7 +172,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-func (c *Reconciler) reconcileCloudSchedulerSource(ctx context.Context, csr *v1alpha1.CloudSchedulerSource) error {
+func (c *Reconciler) reconcileGcssource(ctx context.Context, csr *v1alpha1.Gcssource) error {
 	// See if the source has been deleted.
 	deletionTimestamp := csr.DeletionTimestamp
 
@@ -209,8 +204,8 @@ func (c *Reconciler) reconcileCloudSchedulerSource(ctx context.Context, csr *v1a
 
 	csr.Status.SinkURI = uri
 
-	// Make sure Service is in the state we expect it to be in.
-	ksvc, err := c.reconcileService(csr)
+	// Make sure PubSubSource is in the state we expect it to be in.
+	ksvc, err := c.reconcilePubSub(csr)
 	if err != nil {
 		// TODO: Update status appropriately
 		c.Logger.Infof("Failed to reconcile service: %s", err)
@@ -240,7 +235,7 @@ func (c *Reconciler) reconcileCloudSchedulerSource(ctx context.Context, csr *v1a
 	return nil
 }
 
-func (c *Reconciler) reconcileService(csr *v1alpha1.CloudSchedulerSource) (*servingv1alpha1.Service, error) {
+func (c *Reconciler) reconcilePubSub(csr *v1alpha1.Gcssource) (*servingv1alpha1.Service, error) {
 	svcClient := c.servingClient.ServingV1alpha1().Services(csr.Namespace)
 	existing, err := svcClient.Get(csr.Name, v1.GetOptions{})
 	if err == nil {
@@ -256,7 +251,7 @@ func (c *Reconciler) reconcileService(csr *v1alpha1.CloudSchedulerSource) (*serv
 	return nil, err
 }
 
-func (c *Reconciler) reconcileJob(name string, spec *v1alpha1.CloudSchedulerSourceSpec, target string) (*schedulerpb.Job, error) {
+func (c *Reconciler) reconcileJob(name string, spec *v1alpha1.GcssourceSpec, target string) (*schedulerpb.Job, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", spec.GoogleCloudProject, spec.Location)
 	jobName := fmt.Sprintf("%s/jobs/%s", parent, name)
 
@@ -325,7 +320,7 @@ func (c *Reconciler) reconcileJob(name string, spec *v1alpha1.CloudSchedulerSour
 	return resp, nil
 }
 
-func createJobProto(jobName string, spec *v1alpha1.CloudSchedulerSourceSpec, target string) *schedulerpb.Job {
+func createJobProto(jobName string, spec *v1alpha1.GcssourceSpec, target string) *schedulerpb.Job {
 	// If no timezone specified, use UTC
 	timezone := "UTC"
 	if spec.TimeZone != "" {
@@ -359,7 +354,7 @@ func createJobProto(jobName string, spec *v1alpha1.CloudSchedulerSourceSpec, tar
 	return job
 }
 
-func (c *Reconciler) deleteJob(csr *v1alpha1.CloudSchedulerSource) error {
+func (c *Reconciler) deleteJob(csr *v1alpha1.Gcssource) error {
 	parent := fmt.Sprintf("projects/%s/locations/%s", csr.Spec.GoogleCloudProject, csr.Spec.Location)
 	jobName := fmt.Sprintf("%s/jobs/%s", parent, csr.Name)
 
@@ -391,20 +386,20 @@ func (c *Reconciler) deleteJob(csr *v1alpha1.CloudSchedulerSource) error {
 	return nil
 }
 
-func (c *Reconciler) addFinalizer(csr *v1alpha1.CloudSchedulerSource) {
+func (c *Reconciler) addFinalizer(csr *v1alpha1.Gcssource) {
 	finalizers := sets.NewString(csr.Finalizers...)
 	finalizers.Insert(finalizerName)
 	csr.Finalizers = finalizers.List()
 }
 
-func (c *Reconciler) removeFinalizer(csr *v1alpha1.CloudSchedulerSource) {
+func (c *Reconciler) removeFinalizer(csr *v1alpha1.Gcssource) {
 	finalizers := sets.NewString(csr.Finalizers...)
 	finalizers.Delete(finalizerName)
 	csr.Finalizers = finalizers.List()
 }
 
-func (c *Reconciler) update(desired *v1alpha1.CloudSchedulerSource) (*v1alpha1.CloudSchedulerSource, error) {
-	csr, err := c.cloudschedulersourcesLister.CloudSchedulerSources(desired.Namespace).Get(desired.Name)
+func (c *Reconciler) update(desired *v1alpha1.Gcssource) (*v1alpha1.Gcssource, error) {
+	csr, err := c.gcssourcesLister.Gcssources(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +409,7 @@ func (c *Reconciler) update(desired *v1alpha1.CloudSchedulerSource) (*v1alpha1.C
 		existing := csr.DeepCopy()
 		existing.Status = desired.Status
 		existing.Finalizers = desired.Finalizers
-		client := c.cloudschedulersourceclientset.SourcesV1alpha1().CloudSchedulerSources(desired.Namespace)
+		client := c.gcssourceclientset.SourcesV1alpha1().Gcssources(desired.Namespace)
 		// TODO: for CRD there's no updatestatus, so use normal update.
 		return client.Update(existing)
 	}

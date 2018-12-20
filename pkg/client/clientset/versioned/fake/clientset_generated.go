@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/vaikas-google/csr/pkg/client/clientset/versioned"
-	sourcesv1alpha1 "github.com/vaikas-google/csr/pkg/client/clientset/versioned/typed/cloudschedulersource/v1alpha1"
-	fakesourcesv1alpha1 "github.com/vaikas-google/csr/pkg/client/clientset/versioned/typed/cloudschedulersource/v1alpha1/fake"
+	clientset "github.com/vaikas-google/gcs/pkg/client/clientset/versioned"
+	sourcesv1alpha1 "github.com/vaikas-google/gcs/pkg/client/clientset/versioned/typed/gcs/v1alpha1"
+	fakesourcesv1alpha1 "github.com/vaikas-google/gcs/pkg/client/clientset/versioned/typed/gcs/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

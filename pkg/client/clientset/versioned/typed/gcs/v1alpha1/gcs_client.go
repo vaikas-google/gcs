@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/vaikas-google/csr/pkg/apis/cloudschedulersource/v1alpha1"
-	"github.com/vaikas-google/csr/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
+	"github.com/vaikas-google/gcs/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
 type SourcesV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	CloudSchedulerSourcesGetter
+	GCSSourcesGetter
 }
 
 // SourcesV1alpha1Client is used to interact with features provided by the sources.aikas.org group.
@@ -35,8 +35,8 @@ type SourcesV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SourcesV1alpha1Client) CloudSchedulerSources(namespace string) CloudSchedulerSourceInterface {
-	return newCloudSchedulerSources(c, namespace)
+func (c *SourcesV1alpha1Client) GCSSources(namespace string) GCSSourceInterface {
+	return newGCSSources(c, namespace)
 }
 
 // NewForConfig creates a new SourcesV1alpha1Client for the given config.

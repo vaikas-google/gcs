@@ -21,7 +21,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/vaikas-google/csr/pkg/apis/cloudschedulersource/v1alpha1"
+	v1alpha1 "github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -53,8 +53,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=sources.aikas.org, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("cloudschedulersources"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Sources().V1alpha1().CloudSchedulerSources().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("gcssources"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Sources().V1alpha1().GCSSources().Informer()}, nil
 
 	}
 
