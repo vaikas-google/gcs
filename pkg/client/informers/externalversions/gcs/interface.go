@@ -19,8 +19,8 @@ limitations under the License.
 package sources
 
 import (
-	v1alpha1 "github.com/vaikas-google/csr/pkg/client/informers/externalversions/cloudschedulersource/v1alpha1"
-	internalinterfaces "github.com/vaikas-google/csr/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/gcs/v1alpha1"
+	internalinterfaces "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

@@ -27,44 +27,46 @@ import (
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CloudSchedulerSource is a specification for a CloudSchedulerSource resource
-type CloudSchedulerSource struct {
+// GCSSource is a specification for a GCSSource resource
+type GCSSource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CloudSchedulerSourceSpec   `json:"spec"`
-	Status CloudSchedulerSourceStatus `json:"status"`
+	Spec   GCSSourceSpec   `json:"spec"`
+	Status GCSSourceStatus `json:"status"`
 }
 
-// CloudSchedulerSourceSpec is the spec for a CloudSchedulerSource resource
-type CloudSchedulerSourceSpec struct {
+// GCSSourceSpec is the spec for a GCSSource resource
+type GCSSourceSpec struct {
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified
 	// this will default to the "default" service account for the namespace
-	// in which the CloudSchedulerSource exists.
+	// in which the GCSSource exists.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
 	// GoogleCloudProject is the ID of the Google Cloud Project that the PubSub Topic exists in.
 	GoogleCloudProject string `json:"googleCloudProject,omitempty"`
 
-	// Location where to create the Job in.
-	Location string `json:"location"`
+	// Bucket to subscribe to
+	Bucket string `json:"bucket"`
 
-	// Schedule in cron format, for example: "* * * * *" would be run
-	// every minute.
-	Schedule string `json:"schedule"`
-	// Timezone to apply to the schedule. If omitted, uses UTC
-	TimeZone string `json:"timezone,omitempty"`
+	// EventTypes to subscribe to
+	EventTypes []string `json:"eventTypes,omitempty"`
 
-	// Which method to use to call. GET,PUT or POST. If omitted uses POST
+	// ObjectNamePrefix limits the notifications to objects with this prefix
 	// +optional
-	HTTPMethod string `json:"httpMethod,omitempty"`
-	// What data to send in the call body (PUT/POST).
-	// +optional
-	Body string `json:"body,omitempty"`
+	ObjectNamePrefix string `json:"objectNamePrefix,omitempty"`
 
-	// TODO: Add other configuration options here...
+	// CustomAttributes is the optional list of additional attributes to attach to each Cloud PubSub
+	// message published for this notification subscription.
+	// +optional
+	CustomAttributes map[string]string `json:"customAttributes,omitempty"`
+
+	// PayloadFormat specifies the contents of the message payload.
+	// See https://cloud.google.com/storage/docs/pubsub-notifications#payload.
+	// +optional
+	PayloadFormat string `json:"payloadFormat,omitempty"`
 
 	// Sink is a reference to an object that will resolve to a domain name to use
 	// as the sink.
@@ -72,28 +74,28 @@ type CloudSchedulerSourceSpec struct {
 	Sink *corev1.ObjectReference `json:"sink,omitempty"`
 }
 
-// CloudSchedulerSourceStatus is the status for a CloudSchedulerSource resource
-type CloudSchedulerSourceStatus struct {
+// GCSSourceStatus is the status for a GCSSource resource
+type GCSSourceStatus struct {
 	// TODO: add conditions and other stuff here...
-	// Job is the URI for the created Cloud Scheduler Job
-	Job string `json:"job"`
-
-	// SinkURI is the current active sink URI that has been configured
-	// for the CloudSchedulerSource
+	// NotificationID is the ID that GCS identifies this notification as.
 	// +optional
-	SinkURI string `json:"sinkUri,omitempty"`
+	NotificationID string `json:"notificationID,omitempty"`
+
+	// Topic where the notifications are sent to.
+	// +optional
+	Topic string `json:"topic,omitempty"`
 }
 
-func (csr *CloudSchedulerSource) GetGroupVersionKind() schema.GroupVersionKind {
-	return SchemeGroupVersion.WithKind("CloudSchedulerSource")
+func (gcsSource *GCSSource) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("GCSSource")
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// CloudSchedulerSourceList is a list of CloudSchedulerSource resources
-type CloudSchedulerSourceList struct {
+// GCSSourceList is a list of GCSSource resources
+type GCSSourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []CloudSchedulerSource `json:"items"`
+	Items []GCSSource `json:"items"`
 }

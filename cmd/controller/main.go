@@ -32,9 +32,9 @@ import (
 
 	servingclientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	clientset "github.com/vaikas-google/csr/pkg/client/clientset/versioned"
-	informers "github.com/vaikas-google/csr/pkg/client/informers/externalversions"
-	"github.com/vaikas-google/csr/pkg/reconciler/cloudschedulersource"
+	clientset "github.com/vaikas-google/gcs/pkg/client/clientset/versioned"
+	informers "github.com/vaikas-google/gcs/pkg/client/informers/externalversions"
+	"github.com/vaikas-google/gcs/pkg/reconciler/gcs"
 )
 
 const (
@@ -71,9 +71,9 @@ func main() {
 		logger.Fatalf("Error building dynamic client: %s", err.Error())
 	}
 
-	cloudSchedulerSourceClient, err := clientset.NewForConfig(cfg)
+	gcsSourceClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		logger.Fatalf("Error building cloudSchedulerSource clientset: %s", err.Error())
+		logger.Fatalf("Error building gcsSource clientset: %s", err.Error())
 	}
 
 	servingClient, err := servingclientset.NewForConfig(cfg)
@@ -82,22 +82,22 @@ func main() {
 	}
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-	cloudSchedulerSourceInformerFactory := informers.NewSharedInformerFactory(cloudSchedulerSourceClient, time.Second*30)
+	gcsSourceInformerFactory := informers.NewSharedInformerFactory(gcsSourceClient, time.Second*30)
 
 	// obtain a reference to a shared index informer for the CloudSchedulerSource type.
-	cloudSchedulerSourceInformer := cloudSchedulerSourceInformerFactory.Sources().V1alpha1().CloudSchedulerSources()
+	gcsSourceInformer := gcsSourceInformerFactory.Sources().V1alpha1().CloudSchedulerSources()
 
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, time.Second*30)
 	servingInformer := servingInformerFactory.Serving().V1alpha1().Services()
 
 	// Add new controllers here.
 	controllers := []*controller.Impl{
-		cloudschedulersource.NewController(
+		gcs.NewController(
 			logger,
 			kubeClient,
 			dynamicClient,
-			cloudSchedulerSourceClient,
-			cloudSchedulerSourceInformer,
+			gcsSourceClient,
+			gcsSourceInformer,
 			servingClient,
 			servingInformer,
 			*raImage,
@@ -105,13 +105,13 @@ func main() {
 	}
 
 	go kubeInformerFactory.Start(stopCh)
-	go cloudSchedulerSourceInformerFactory.Start(stopCh)
+	go gcsSourceInformerFactory.Start(stopCh)
 	go servingInformerFactory.Start(stopCh)
 
 	// Wait for the caches to be synced before starting controllers.
 	logger.Info("Waiting for informer caches to sync")
 	for i, synced := range []cache.InformerSynced{
-		cloudSchedulerSourceInformer.Informer().HasSynced,
+		gcsSourceInformer.Informer().HasSynced,
 		servingInformer.Informer().HasSynced,
 	} {
 		if ok := cache.WaitForCacheSync(stopCh, synced); !ok {

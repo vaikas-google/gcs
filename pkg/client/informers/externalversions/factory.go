@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/vaikas-google/csr/pkg/client/clientset/versioned"
-	cloudschedulersource "github.com/vaikas-google/csr/pkg/client/informers/externalversions/cloudschedulersource"
-	internalinterfaces "github.com/vaikas-google/csr/pkg/client/informers/externalversions/internalinterfaces"
+	versioned "github.com/vaikas-google/gcs/pkg/client/clientset/versioned"
+	gcs "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/gcs"
+	internalinterfaces "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Sources() cloudschedulersource.Interface
+	Sources() gcs.Interface
 }
 
-func (f *sharedInformerFactory) Sources() cloudschedulersource.Interface {
-	return cloudschedulersource.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Sources() gcs.Interface {
+	return gcs.New(f, f.namespace, f.tweakListOptions)
 }
