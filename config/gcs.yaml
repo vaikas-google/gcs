@@ -1,0 +1,62 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  # name must match the spec fields below, and be in the form: <plural>.<group>
+  name: gcssources.sources.aikas.org
+  labels:
+    eventing.knative.dev/source: "true"
+spec:
+  group: sources.aikas.org
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    categories:
+    - all
+    - knative
+    - eventing
+    - sources
+    plural: gcssources
+    singular: gcssource
+    kind: GCSSource
+    shortNames:
+    - gcs
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            gcsCredsSecret:
+              type: object
+              description: "Credential to use for creating a GCP notification. Must be a service account key in JSON format (see https://cloud.google.com/iam/docs/creating-managing-service-account-keys)."
+            gcpCredsSecret:
+              type: object
+              description: "Optional credential to use for subscribing to the GCP PubSub topic. If omitted, uses gcsCredsSecret. Must be a service account key in JSON format (see https://cloud.google.com/iam/docs/creating-managing-service-account-keys)."
+            serviceAccountName:
+              type: string
+              description: "Service Account to run Receive Adapter as. If omitted, uses 'default'."
+            googleCloudProject:
+              type: string
+              description: "Google Cloud Project ID to create the scheduler job in."
+            bucket:
+              type: string
+              description: "GCS bucket to subscribe to. For example my-test-bucket"
+            objectNamePrefix:
+              type: string
+              description: "Optional prefix to only notify when objects match this prefix."
+            payloadFormat:
+              type: string
+              description: "Optional payload format. Either NONE or JSON_API_V1. If omitted, uses JSON_API_V1."
+            sink:
+              type: object
+              description: "Where to sink the notificaitons to."
+          required:
+          - gcsCredsSecret
+          - googleCloudProject
+          - bucket
+          - sink
