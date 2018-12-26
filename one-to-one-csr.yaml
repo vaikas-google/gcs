@@ -2,14 +2,19 @@
 #   MY_GCP_PROJECT: Replace with the GCP Project's ID.
 
 apiVersion: sources.aikas.org/v1alpha1
-kind: CloudSchedulerSource
+kind: GCSSource
 metadata:
-  name: scheduler-test
+  name: notification-test
 spec:
-  googleCloudProject: MY_GCP_PROJECT
-  location: us-central1
-  schedule: "every 1 mins"
-  body: '{"data": "test does this work"}'
+#  googleCloudProject: MY_GCP_PROJECT
+  googleCloudProject: quantum-reducer-434
+  gcsCredsSecret:  # A secret in the knative-sources namespace
+    name: google-cloud-key
+    key: key.json
+  gcpCredsSecret:  # A secret in the knative-sources namespace
+    name: google-cloud-key
+    key: key.json
+  bucket: vaikas-knative-test-bucket
   sink:
     apiVersion: serving.knative.dev/v1alpha1
     kind: Service
