@@ -7,15 +7,15 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: cloudschedulersource-controller-admin
+  name: gcssource-controller-admin
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 subjects:
 - kind: ServiceAccount
-  name: cloudschedulersource-controller
-  namespace: cloudschedulersource-system
+  name: gcssource-controller
+  namespace: gcssource-system
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -36,7 +36,7 @@ spec:
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
-        image: us.gcr.io/probable-summer-223122/controller-8052802edb86bc81e26b390db3d93fe2@sha256:344ec89c7f149827a703592216b54ece4fb9d3d89b8b298991b0d14c930e37d3
+        image: us.gcr.io/probable-summer-223122/controller-8052802edb86bc81e26b390db3d93fe2@sha256:9b54235b3923b273ddf985ef19f51e41c3b8fe8c46b771e92a32d506a8fb90df
         name: gcssource-controller
         volumeMounts:
         - mountPath: /var/secrets/google
