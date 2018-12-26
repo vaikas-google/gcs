@@ -38,6 +38,19 @@ type GCSSource struct {
 
 // GCSSourceSpec is the spec for a GCSSource resource
 type GCSSourceSpec struct {
+	// GCSCredsSecret is the credential to use to create the Notification on the GCS bucket.
+	// The value of the secret entry must be a service account key in the JSON format (see
+	// https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+	GCSCredsSecret corev1.SecretKeySelector `json:"gcsCredsSecret"`
+
+	// GcpCredsSecret is the credential to use to poll the GCP PubSub Subscription. It is not used
+	// to create or delete the Subscription, only to poll it. The value of the secret entry must be
+	// a service account key in the JSON format (see
+	// https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+	// If omitted, uses GCSCredsSecret from above
+	// +optional
+	GcpCredsSecret *corev1.SecretKeySelector `json:"gcpCredsSecret,omitempty"`
+
 	// ServiceAccountName holds the name of the Kubernetes service account
 	// as which the underlying K8s resources should be run. If unspecified
 	// this will default to the "default" service account for the namespace
@@ -84,6 +97,10 @@ type GCSSourceStatus struct {
 	// Topic where the notifications are sent to.
 	// +optional
 	Topic string `json:"topic,omitempty"`
+
+	// SinkURI is the current active sink URI that has been configured for the GCSSource.
+	// +optional
+	SinkURI string `json:"sinkUri,omitempty"`
 }
 
 func (gcsSource *GCSSource) GetGroupVersionKind() schema.GroupVersionKind {

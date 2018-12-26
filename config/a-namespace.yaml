@@ -1,4 +1,4 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cloudschedulersource-system
+  name: gcssource-system

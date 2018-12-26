@@ -2,71 +2,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cloudschedulersource-system
----
-apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
-metadata:
-  labels:
-    eventing.knative.dev/source: "true"
-  name: cloudschedulersources.sources.aikas.org
-spec:
-  group: sources.aikas.org
-  names:
-    categories:
-    - all
-    - knative
-    - eventing
-    - sources
-    kind: CloudSchedulerSource
-    plural: cloudschedulersources
-    shortNames:
-    - csr
-    singular: cloudschedulersource
-  scope: Namespaced
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          type: string
-        kind:
-          type: string
-        metadata:
-          type: object
-        spec:
-          properties:
-            body:
-              description: Optional body to send in the event
-              type: string
-            googleCloudProject:
-              description: Google Cloud Project ID to create the scheduler job in.
-              type: string
-            httpMethod:
-              description: Optional HTTP method to use when delivering the event.
-                If omitted, uses POST
-              type: string
-            location:
-              description: 'Google Cloud Platform region to create the scheduler job
-                in. For example: us-central1.'
-              type: string
-            schedule:
-              description: 'Schedule in cron format. For example: ''* * * * *'' (once
-                a minute), or human readable: ''every 1 mins'''
-              type: string
-            serviceAccountName:
-              description: Service Account to run Receive Adapter as. If omitted,
-                uses 'default'.
-              type: string
-            sink:
-              type: object
-            timezone:
-              description: Optional timezone of the schedule. If omitted, uses UTC.
-              type: string
-          required:
-          - googleCloudProject
-          - location
-          - schedule
-  version: v1alpha1
+  name: gcssource-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -84,38 +20,104 @@ subjects:
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: cloudschedulersource-controller
-  namespace: cloudschedulersource-system
+  name: gcssource-controller
+  namespace: gcssource-system
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: cloudschedulersource-controller
+        app: gcssource-controller
     spec:
       containers:
       - args:
         - -logtostderr=true
         - -stderrthreshold=INFO
-        - -raimage
-        - us.gcr.io/probable-summer-223122/receiveadapter-ed34e5d5c6278be2ee9b98fdb9ad4d9d@sha256:3cfdb84bcfdc38bd03177c4933d36242969c77447a63d147dcda4f436eaea498
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
-        image: us.gcr.io/probable-summer-223122/controller-870d05653c81134f2e0c38c2ba82aabd@sha256:3e1ac6864f92d15a0dc774d8d18bac278174fc3d01de83f214239300d6a76de2
-        name: cloudschedulersource-controller
+        image: us.gcr.io/probable-summer-223122/controller-8052802edb86bc81e26b390db3d93fe2@sha256:344ec89c7f149827a703592216b54ece4fb9d3d89b8b298991b0d14c930e37d3
+        name: gcssource-controller
         volumeMounts:
         - mountPath: /var/secrets/google
           name: google-cloud-key
-      serviceAccountName: cloudschedulersource-controller
+      serviceAccountName: gcssource-controller
       terminationGracePeriodSeconds: 10
       volumes:
       - name: google-cloud-key
         secret:
-          secretName: cloudschedulersource-key
+          secretName: gcssource-key
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    eventing.knative.dev/source: "true"
+  name: gcssources.sources.aikas.org
+spec:
+  group: sources.aikas.org
+  names:
+    categories:
+    - all
+    - knative
+    - eventing
+    - sources
+    kind: GCSSource
+    plural: gcssources
+    shortNames:
+    - gcs
+    singular: gcssource
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            bucket:
+              description: GCS bucket to subscribe to. For example my-test-bucket
+              type: string
+            gcpCredsSecret:
+              description: Optional credential to use for subscribing to the GCP PubSub
+                topic. If omitted, uses gcsCredsSecret. Must be a service account
+                key in JSON format (see https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+              type: object
+            gcsCredsSecret:
+              description: Credential to use for creating a GCP notification. Must
+                be a service account key in JSON format (see https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+              type: object
+            googleCloudProject:
+              description: Google Cloud Project ID to create the scheduler job in.
+              type: string
+            objectNamePrefix:
+              description: Optional prefix to only notify when objects match this
+                prefix.
+              type: string
+            payloadFormat:
+              description: Optional payload format. Either NONE or JSON_API_V1. If
+                omitted, uses JSON_API_V1.
+              type: string
+            serviceAccountName:
+              description: Service Account to run Receive Adapter as. If omitted,
+                uses 'default'.
+              type: string
+            sink:
+              description: Where to sink the notificaitons to.
+              type: object
+          required:
+          - gcsCredsSecret
+          - googleCloudProject
+          - bucket
+          - sink
+  version: v1alpha1
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cloudschedulersource-controller
-  namespace: cloudschedulersource-system
+  name: gcssource-controller
+  namespace: gcssource-system

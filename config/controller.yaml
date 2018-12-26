@@ -1,27 +1,25 @@
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: cloudschedulersource-controller
-  namespace: cloudschedulersource-system
+  name: gcssource-controller
+  namespace: gcssource-system
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: cloudschedulersource-controller
+        app: gcssource-controller
     spec:
-      serviceAccountName: cloudschedulersource-controller
+      serviceAccountName: gcssource-controller
       containers:
       - env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
-        name: cloudschedulersource-controller
-        image: github.com/vaikas-google/csr/cmd/controller
+        name: gcssource-controller
+        image: github.com/vaikas-google/gcs/cmd/controller
         args:
         - "-logtostderr=true"
         - "-stderrthreshold=INFO"
-        - "-raimage"
-        - "github.com/vaikas-google/csr/cmd/receiveadapter"
         volumeMounts:
         - mountPath: /var/secrets/google
           name: google-cloud-key
@@ -29,4 +27,4 @@ spec:
       volumes:
       - name: google-cloud-key
         secret:
-          secretName: cloudschedulersource-key
+          secretName: gcssource-key

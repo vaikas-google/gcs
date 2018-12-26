@@ -17,7 +17,6 @@ limitations under the License.
 package gcs
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -31,17 +30,18 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
-	"cloud.google.com/go/scheduler/apiv1beta1"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	servingclientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	"cloud.google.com/go/storage"
+
+	pubsubsourcev1alpha1 "github.com/knative/eventing-sources/pkg/apis/sources/v1alpha1"
+
+	pubsubsourceclientset "github.com/knative/eventing-sources/pkg/client/clientset/versioned"
+	pubsubsourceinformers "github.com/knative/eventing-sources/pkg/client/informers/externalversions/sources/v1alpha1"
 	"github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
 	clientset "github.com/vaikas-google/gcs/pkg/client/clientset/versioned"
-	gcsscheme "github.com/vaikas-google/gcs/pkg/client/clientset/versioned/scheme"
+	gcssourcescheme "github.com/vaikas-google/gcs/pkg/client/clientset/versioned/scheme"
 	informers "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/gcs/v1alpha1"
 	listers "github.com/vaikas-google/gcs/pkg/client/listers/gcs/v1alpha1"
 	"github.com/vaikas-google/gcs/pkg/reconciler/gcs/resources"
-	schedulerpb "google.golang.org/genproto/googleapis/cloud/scheduler/v1beta1"
 	"google.golang.org/grpc/codes"
 	gstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -61,14 +61,14 @@ type Reconciler struct {
 	kubeclientset kubernetes.Interface
 	// gcssourceclientset is a clientset for our own API group
 	gcssourceclientset clientset.Interface
-	gcssourcesLister   listers.GcssourceLister
+	gcssourcesLister   listers.GCSSourceLister
 
 	// We use dynamic client for Duck type related stuff.
 	dynamicClient dynamic.Interface
 
-	// For dealing with Service.serving.knative.dev
-	servingClient   servingclientset.Interface
-	servingInformer servinginformers.ServiceInformer
+	// For dealing with
+	pubsubClient   pubsubsourceclientset.Interface
+	pubsubInformer pubsubsourceinformers.GcpPubSubSourceInformer
 
 	// Sugared logger is easier to use but is not as performant as the
 	// raw logger. In performance critical paths, call logger.Desugar()
@@ -93,9 +93,9 @@ func NewController(
 	kubeclientset kubernetes.Interface,
 	dynamicClient dynamic.Interface,
 	gcssourceclientset clientset.Interface,
-	gcssourceInformer informers.GcssourceInformer,
-	servingclientset servingclientset.Interface,
-	servingsourceInformer servinginformers.ServiceInformer,
+	gcssourceInformer informers.GCSSourceInformer,
+	pubsubclientset pubsubsourceclientset.Interface,
+	pubsubsourceInformer pubsubsourceinformers.GcpPubSubSourceInformer,
 ) *controller.Impl {
 
 	// Enrich the logs with controller name
@@ -106,26 +106,26 @@ func NewController(
 		dynamicClient:      dynamicClient,
 		gcssourceclientset: gcssourceclientset,
 		gcssourcesLister:   gcssourceInformer.Lister(),
-		servingClient:      servingclientset,
+		pubsubClient:       pubsubclientset,
 		Logger:             logger,
 	}
 	statsExporter, err := controller.NewStatsReporter(controllerAgentName)
 	if nil != err {
 		logger.Fatalf("Couldn't create stats exporter: %s", err)
 	}
-	impl := controller.NewImpl(r, logger, "Gcssources", statsExporter)
+	impl := controller.NewImpl(r, logger, "GCSSources", statsExporter)
 
 	logger.Info("Setting up event handlers")
 
-	// Set up an event handler for when Gcssource resources change
+	// Set up an event handler for when GCSSource resources change
 	gcssourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 	})
 
-	// Set up an event handler for when Gcssource owned Service resources change.
+	// Set up an event handler for when GCSSource owned Service resources change.
 	// Basically whenever a Service controlled by us is chaned, we want to know about it.
-	servingsourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	pubsubsourceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.EnqueueControllerOf,
 		UpdateFunc: controller.PassNew(impl.EnqueueControllerOf),
 		DeleteFunc: impl.EnqueueControllerOf,
@@ -143,10 +143,10 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
-	// Get the Gcssource resource with this namespace/name
-	original, err := c.gcssourcesLister.Gcssources(namespace).Get(name)
+	// Get the GCSSource resource with this namespace/name
+	original, err := c.gcssourcesLister.GCSSources(namespace).Get(name)
 	if errors.IsNotFound(err) {
-		// The Gcssource resource may no longer exist, in which case we stop processing.
+		// The GCSSource resource may no longer exist, in which case we stop processing.
 		runtime.HandleError(fmt.Errorf("gcssource '%s' in work queue no longer exists", key))
 		return nil
 	} else if err != nil {
@@ -156,7 +156,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Don't modify the informers copy
 	csr := original.DeepCopy()
 
-	err = c.reconcileGcssource(ctx, csr)
+	err = c.reconcileGCSSource(ctx, csr)
 
 	if equality.Semantic.DeepEqual(original.Status, csr.Status) &&
 		equality.Semantic.DeepEqual(original.ObjectMeta, csr.ObjectMeta) {
@@ -166,13 +166,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if _, err := c.update(csr); err != nil {
-		c.Logger.Warn("Failed to update CloudSchedulerService status", zap.Error(err))
+		c.Logger.Warn("Failed to update GCS Source status", zap.Error(err))
 		return err
 	}
 	return err
 }
 
-func (c *Reconciler) reconcileGcssource(ctx context.Context, csr *v1alpha1.Gcssource) error {
+func (c *Reconciler) reconcileGCSSource(ctx context.Context, csr *v1alpha1.GCSSource) error {
 	// See if the source has been deleted.
 	deletionTimestamp := csr.DeletionTimestamp
 
@@ -191,7 +191,7 @@ func (c *Reconciler) reconcileGcssource(ctx context.Context, csr *v1alpha1.Gcsso
 	c.Logger.Infof("Resolved Sink URI to %q", uri)
 
 	if deletionTimestamp != nil {
-		err := c.deleteJob(csr)
+		err := c.deleteNotification(csr)
 		if err != nil {
 			c.Logger.Infof("Unable to delete the Job: %s", err)
 			return err
@@ -203,182 +203,103 @@ func (c *Reconciler) reconcileGcssource(ctx context.Context, csr *v1alpha1.Gcsso
 	c.addFinalizer(csr)
 
 	csr.Status.SinkURI = uri
+	csr.Status.Topic = "testing"
 
 	// Make sure PubSubSource is in the state we expect it to be in.
-	ksvc, err := c.reconcilePubSub(csr)
+	pubsub, err := c.reconcilePubSub(csr)
 	if err != nil {
 		// TODO: Update status appropriately
 		c.Logger.Infof("Failed to reconcile service: %s", err)
 		return err
 	}
-	c.Logger.Infof("Reconciled service: %+v", ksvc)
+	c.Logger.Infof("Reconciled pubsub source: %+v", pubsub)
+	c.Logger.Infof("using %s as a cluster sink", pubsub.Status.SinkURI)
 
-	if ksvc.Status.Domain == "" {
-		// TODO: Update status appropriately
-		c.Logger.Infof("No domain configured for service, bailing...")
-		return fmt.Errorf("no domain configured for service")
-	}
-
-	url := fmt.Sprintf("http://%s/", ksvc.Status.Domain)
-	c.Logger.Infof("using %s as a cluster sink", url)
-
-	job, err := c.reconcileJob(csr.Name, &csr.Spec, url)
+	notification, err := c.reconcileNotification(csr)
 	if err != nil {
 		// TODO: Update status with this...
-		c.Logger.Infof("Failed to reconcile Job: %s", err)
+		c.Logger.Infof("Failed to reconcile GCS Notification: %s", err)
 		return err
 	}
 
-	c.Logger.Infof("Reconciled job: %+v", job)
-	csr.Status.Job = job.Name
-
+	c.Logger.Infof("Reconciled GCS notification: %+v", notification)
+	csr.Status.NotificationID = notification.ID
 	return nil
 }
 
-func (c *Reconciler) reconcilePubSub(csr *v1alpha1.Gcssource) (*servingv1alpha1.Service, error) {
-	svcClient := c.servingClient.ServingV1alpha1().Services(csr.Namespace)
-	existing, err := svcClient.Get(csr.Name, v1.GetOptions{})
+func (c *Reconciler) reconcilePubSub(csr *v1alpha1.GCSSource) (*pubsubsourcev1alpha1.GcpPubSubSource, error) {
+	pubsubClient := c.pubsubClient.Sources().GcpPubSubSources(csr.Namespace)
+	existing, err := pubsubClient.Get(csr.Name, v1.GetOptions{})
 	if err == nil {
 		// TODO: Handle any updates...
-		c.Logger.Infof("Found existing service: %+v", existing)
+		c.Logger.Infof("Found existing pubsubsource: %+v", existing)
 		return existing, nil
 	}
 	if errors.IsNotFound(err) {
-		ksvc := resources.MakeService(csr, c.raImage)
-		c.Logger.Infof("Creating service %+v", ksvc)
-		return c.servingClient.ServingV1alpha1().Services(csr.Namespace).Create(ksvc)
+		pubsub := resources.MakePubSub(csr, "testing")
+		c.Logger.Infof("Creating service %+v", pubsub)
+		return pubsubClient.Create(pubsub)
 	}
 	return nil, err
 }
 
-func (c *Reconciler) reconcileJob(name string, spec *v1alpha1.GcssourceSpec, target string) (*schedulerpb.Job, error) {
-	parent := fmt.Sprintf("projects/%s/locations/%s", spec.GoogleCloudProject, spec.Location)
-	jobName := fmt.Sprintf("%s/jobs/%s", parent, name)
-
-	c.Logger.Infof("Parent: %q Job: %q", parent, jobName)
-
+func (c *Reconciler) reconcileNotification(gcs *v1alpha1.GCSSource) (*storage.Notification, error) {
 	ctx := context.Background()
-	csc, err := scheduler.NewCloudSchedulerClient(ctx)
+	gcsClient, err := storage.NewClient(ctx)
 	if err != nil {
+		c.Logger.Infof("Failed to create storage client: %s", err)
 		return nil, err
 	}
 
-	getReq := &schedulerpb.GetJobRequest{
-		Name: jobName,
-	}
+	bucket := gcsClient.Bucket(gcs.Spec.Bucket)
 
-	existing, err := csc.GetJob(ctx, getReq)
-	if err == nil {
-		c.Logger.Infof("Found existing job as: %+v", existing)
-
-		existingHttpTarget := existing.GetHttpTarget()
-		if existingHttpTarget == nil {
-			return nil, fmt.Errorf("missing http target in the existing scheduler proto: %+v", existing)
-		}
-
-		updated := createJobProto(jobName, spec, target)
-		updatedHttpTarget := updated.GetHttpTarget()
-		if updatedHttpTarget == nil {
-			return nil, fmt.Errorf("missing http target in the updated scheduler proto: %+v", updated)
-		}
-		if updated.Schedule != existing.Schedule ||
-			updated.TimeZone != existing.TimeZone ||
-			bytes.Compare(updatedHttpTarget.Body, existingHttpTarget.Body) != 0 ||
-			updatedHttpTarget.HttpMethod != existingHttpTarget.HttpMethod {
-			req := &schedulerpb.UpdateJobRequest{
-				Job: updated,
-			}
-			c.Logger.Info("Updating Job spec with %+v", req)
-			resp, err := csc.UpdateJob(ctx, req)
-			if err != nil {
-				return nil, err
-			}
-			return resp, nil
-		}
-		return existing, nil
-	}
-
-	if st, ok := gstatus.FromError(err); !ok {
-		c.Logger.Infof("Unknown error from the cloud scheduler client: %s", err)
-		return nil, err
-	} else if st.Code() != codes.NotFound {
-		return nil, err
-	}
-
-	req := &schedulerpb.CreateJobRequest{
-		Parent: parent,
-		Job:    createJobProto(jobName, spec, target),
-	}
-
-	c.Logger.Infof("Creating job as: %+v", req)
-	resp, err := csc.CreateJob(ctx, req)
+	notifications, err := bucket.Notifications(ctx)
 	if err != nil {
+		c.Logger.Infof("Failed to fetch existing notifications: %s", err)
 		return nil, err
 	}
-	// TODO: Use resp.
-	c.Logger.Infof("Created job %+v", resp)
-	return resp, nil
+
+	if gcs.Status.NotificationID != "" {
+		if existing, ok := notifications[gcs.Status.NotificationID]; ok {
+			c.Logger.Infof("Found existing notification: %+v", existing)
+			return existing, nil
+		}
+	}
+
+	c.Logger.Infof("Creating a notification on bucket %s", gcs.Spec.Bucket)
+	notification, err := bucket.AddNotification(ctx, &storage.Notification{
+		TopicProjectID: gcs.Spec.GoogleCloudProject,
+		TopicID:        gcs.Status.Topic,
+		PayloadFormat:  storage.JSONPayload,
+	})
+
+	if err != nil {
+		c.Logger.Infof("Failed to create Notification: %s", err)
+		return nil, err
+	}
+	c.Logger.Infof("Created Notification %q", notification.ID)
+
+	return notification, nil
 }
 
-func createJobProto(jobName string, spec *v1alpha1.GcssourceSpec, target string) *schedulerpb.Job {
-	// If no timezone specified, use UTC
-	timezone := "UTC"
-	if spec.TimeZone != "" {
-		timezone = spec.TimeZone
-	}
-
-	// For method, default to POST, otherwise use what's specified and look up the value for it.
-	HttpMethod := schedulerpb.HttpMethod_POST
-	if spec.HTTPMethod != "" {
-		if m, ok := schedulerpb.HttpMethod_value[spec.HTTPMethod]; ok {
-			HttpMethod = schedulerpb.HttpMethod(m)
-		}
-	}
-
-	httpTarget := &schedulerpb.Job_HttpTarget{
-		HttpTarget: &schedulerpb.HttpTarget{
-			Uri:        target,
-			HttpMethod: HttpMethod,
-		},
-	}
-	if spec.Body != "" {
-		httpTarget.HttpTarget.Body = []byte(spec.Body)
-	}
-
-	job := &schedulerpb.Job{
-		Name:     jobName,
-		Schedule: spec.Schedule,
-		TimeZone: timezone,
-		Target:   httpTarget,
-	}
-	return job
-}
-
-func (c *Reconciler) deleteJob(csr *v1alpha1.Gcssource) error {
-	parent := fmt.Sprintf("projects/%s/locations/%s", csr.Spec.GoogleCloudProject, csr.Spec.Location)
-	jobName := fmt.Sprintf("%s/jobs/%s", parent, csr.Name)
-
-	c.Logger.Infof("Parent: %q Job: %q", parent, jobName)
-
+func (c *Reconciler) deleteNotification(gcs *v1alpha1.GCSSource) error {
 	ctx := context.Background()
-	csc, err := scheduler.NewCloudSchedulerClient(ctx)
+	gcsClient, err := storage.NewClient(ctx)
 	if err != nil {
+		c.Logger.Infof("Failed to create storage client: %s", err)
 		return err
 	}
 
-	deleteReq := &schedulerpb.DeleteJobRequest{
-		Name: jobName,
-	}
-
-	c.Logger.Infof("Deleting job as: %q", jobName)
-	err = csc.DeleteJob(ctx, deleteReq)
+	bucket := gcsClient.Bucket(gcs.Spec.Bucket)
+	c.Logger.Infof("Deleting notification as: %q", gcs.Status.NotificationID)
+	err = bucket.DeleteNotification(ctx, gcs.Status.NotificationID)
 	if err == nil {
-		c.Logger.Infof("Deleted job: %+v", jobName)
+		c.Logger.Infof("Deleted Notification: %q", gcs.Status.NotificationID)
 		return nil
 	}
 
 	if st, ok := gstatus.FromError(err); !ok {
-		c.Logger.Infof("Unknown error from the cloud scheduler client: %s", err)
+		c.Logger.Infof("Unknown error from the cloud storage client: %s", err)
 		return err
 	} else if st.Code() != codes.NotFound {
 		return err
@@ -386,20 +307,20 @@ func (c *Reconciler) deleteJob(csr *v1alpha1.Gcssource) error {
 	return nil
 }
 
-func (c *Reconciler) addFinalizer(csr *v1alpha1.Gcssource) {
+func (c *Reconciler) addFinalizer(csr *v1alpha1.GCSSource) {
 	finalizers := sets.NewString(csr.Finalizers...)
 	finalizers.Insert(finalizerName)
 	csr.Finalizers = finalizers.List()
 }
 
-func (c *Reconciler) removeFinalizer(csr *v1alpha1.Gcssource) {
+func (c *Reconciler) removeFinalizer(csr *v1alpha1.GCSSource) {
 	finalizers := sets.NewString(csr.Finalizers...)
 	finalizers.Delete(finalizerName)
 	csr.Finalizers = finalizers.List()
 }
 
-func (c *Reconciler) update(desired *v1alpha1.Gcssource) (*v1alpha1.Gcssource, error) {
-	csr, err := c.gcssourcesLister.Gcssources(desired.Namespace).Get(desired.Name)
+func (c *Reconciler) update(desired *v1alpha1.GCSSource) (*v1alpha1.GCSSource, error) {
+	csr, err := c.gcssourcesLister.GCSSources(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +330,7 @@ func (c *Reconciler) update(desired *v1alpha1.Gcssource) (*v1alpha1.Gcssource, e
 		existing := csr.DeepCopy()
 		existing.Status = desired.Status
 		existing.Finalizers = desired.Finalizers
-		client := c.gcssourceclientset.SourcesV1alpha1().Gcssources(desired.Namespace)
+		client := c.gcssourceclientset.SourcesV1alpha1().GCSSources(desired.Namespace)
 		// TODO: for CRD there's no updatestatus, so use normal update.
 		return client.Update(existing)
 	}
