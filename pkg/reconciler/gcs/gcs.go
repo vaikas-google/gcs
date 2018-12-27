@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/google/uuid"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging/logkey"
 	"go.uber.org/zap"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
+	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/storage"
 
 	pubsubsourcev1alpha1 "github.com/knative/eventing-sources/pkg/apis/sources/v1alpha1"
@@ -193,17 +195,28 @@ func (c *Reconciler) reconcileGCSSource(ctx context.Context, csr *v1alpha1.GCSSo
 	if deletionTimestamp != nil {
 		err := c.deleteNotification(csr)
 		if err != nil {
-			c.Logger.Infof("Unable to delete the Job: %s", err)
+			c.Logger.Infof("Unable to delete the Notification: %s", err)
 			return err
 		}
+		err = c.deleteTopic(csr.Spec.GoogleCloudProject, csr.Status.Topic)
+		if err != nil {
+			c.Logger.Infof("Unable to delete the Topic: %s", err)
+			return err
+		}
+		csr.Status.Topic = ""
 		c.removeFinalizer(csr)
 		return nil
+	}
+
+	err = c.reconcileTopic(csr)
+	if err != nil {
+		c.Logger.Infof("Failed to reconcile topic %s", err)
+		return err
 	}
 
 	c.addFinalizer(csr)
 
 	csr.Status.SinkURI = uri
-	csr.Status.Topic = "testing"
 
 	// Make sure PubSubSource is in the state we expect it to be in.
 	pubsub, err := c.reconcilePubSub(csr)
@@ -282,7 +295,65 @@ func (c *Reconciler) reconcileNotification(gcs *v1alpha1.GCSSource) (*storage.No
 	return notification, nil
 }
 
+func (c *Reconciler) reconcileTopic(csr *v1alpha1.GCSSource) error {
+	if csr.Status.Topic == "" {
+		// Create a UUID for the topic. prefix with gcs- to make it conformant.
+		csr.Status.Topic = fmt.Sprintf("gcs-%s", uuid.New().String())
+
+	}
+
+	ctx := context.Background()
+	psc, err := pubsub.NewClient(ctx, csr.Spec.GoogleCloudProject)
+	if err != nil {
+		return err
+	}
+	topic := psc.Topic(csr.Status.Topic)
+	exists, err := topic.Exists(ctx)
+	if err != nil {
+		c.Logger.Infof("Failed to check for topic %q existence : %s", csr.Status.Topic, err)
+		return err
+	}
+	if exists {
+		c.Logger.Infof("Topic %q exists already", csr.Status.Topic)
+		return nil
+	}
+
+	c.Logger.Infof("Creating topic %q", csr.Status.Topic)
+	newTopic, err := psc.CreateTopic(ctx, csr.Status.Topic)
+	if err != nil {
+		c.Logger.Infof("Failed to create topic %q : %s", csr.Status.Topic, err)
+		return err
+	}
+	c.Logger.Infof("Created topic %q : %+v", csr.Status.Topic, newTopic)
+	return nil
+}
+
+func (c *Reconciler) deleteTopic(project string, topic string) error {
+	ctx := context.Background()
+	psc, err := pubsub.NewClient(ctx, project)
+	if err != nil {
+		return err
+	}
+	t := psc.Topic(topic)
+	err = t.Delete(context.Background())
+	if err == nil {
+		c.Logger.Infof("Deleted topic %q", topic)
+		return nil
+	}
+
+	if st, ok := gstatus.FromError(err); !ok {
+		c.Logger.Infof("Unknown error from the pubsub client: %s", err)
+		return err
+	} else if st.Code() != codes.NotFound {
+		return err
+	}
+	return nil
+}
+
 func (c *Reconciler) deleteNotification(gcs *v1alpha1.GCSSource) error {
+	if gcs.Status.NotificationID == "" {
+		return nil
+	}
 	ctx := context.Background()
 	gcsClient, err := storage.NewClient(ctx)
 	if err != nil {
