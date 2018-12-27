@@ -351,6 +351,9 @@ func (c *Reconciler) deleteTopic(project string, topic string) error {
 }
 
 func (c *Reconciler) deleteNotification(gcs *v1alpha1.GCSSource) error {
+	if gcs.Status.NotificationID == "" {
+		return nil
+	}
 	ctx := context.Background()
 	gcsClient, err := storage.NewClient(ctx)
 	if err != nil {

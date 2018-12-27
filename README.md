@@ -66,34 +66,49 @@ Another purpose is to serve as an example of how to build an Event Source using 
    1. Create a new service account named `csr-source` with the following
       command:
       ```shell
-      gcloud iam service-accounts create csr-source
+      gcloud iam service-accounts create gcs-source
       ```
-   1. Give that Service Account the  Editor' role on your GCP project:
+   1. Give that Service Account the  Editor' role for storage your GCP project:
       ```shell
       gcloud projects add-iam-policy-binding $PROJECT_ID \
-        --member=serviceAccount:csr-source@$PROJECT_ID.iam.gserviceaccount.com \
-        --role roles/cloudscheduler.admin
+        --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
+        --role roles/storage.admin
       ```
+   1. Give that Service Account the  Editor' role for pubsub your GCP project:
+      ```shell
+      gcloud projects add-iam-policy-binding $PROJECT_ID \
+        --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
+        --role roles/pubsub.editor
+      ```
+
+   1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
+   First [Find the Service Account GCS uses](https://cloud.google.com/storage/docs/getting-service-account)
+   Then grant rights to publish. Assume the service account you found from above was
+   service-569794698548@gs-project-accounts.iam.gserviceaccount.com
+   ```shell
+   gcloud projects add-iam-policy-binding $PROJECT_ID   --member="serviceAccount:service-569794698548@gs-project-accounts.iam.gserviceaccount.com"   --role roles/pubsub.publisher
+   ```
+
    1. Download a new JSON private key for that Service Account. **Be sure not to
       check this key into source control!**
       ```shell
-      gcloud iam service-accounts keys create csr-source.json \
-        --iam-account=csr-source@$PROJECT_ID.iam.gserviceaccount.com
+      gcloud iam service-accounts keys create gcs-source.json \
+        --iam-account=gcs-source@$PROJECT_ID.iam.gserviceaccount.com
       ```
    1. Create a namespace for where the secret is created and where our controller will run
 
       ```shell
-      kubectl create namespace cloudschedulersource-system
+      kubectl create namespace gcssource-system
       ```
 
    1. Create a secret on the kubernetes cluster for the downloaded key. You need
       to store this key in `key.json` in a secret named `gcppubsub-source-key`
 
       ```shell
-      kubectl -n cloudschedulersource-system create secret generic cloudschedulersource-key --from-file=key.json=csr-source.json
+      kubectl -n gcssource-system create secret generic gcssource-key --from-file=key.json=gcs-source.json
       ```
 
-      The name `cloudschedulersource-key` and `key.json` are pre-configured values
+      The name `gcssource-key` and `key.json` are pre-configured values
       in the controller which manages your Cloud Scheduler sources.
 
 
