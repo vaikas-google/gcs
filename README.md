@@ -1,30 +1,31 @@
-# Knative`Cloud Scheduler Source` CRD.
+# Knative`Google Cloud Storage Source` CRD.
 
 ## Overview
 
 This repository implements an Event Source for [Knative Eventing](http://github.com/knative/eventing)
 defined with a CustomResourceDefinition (CRD). This Event Source represents
-[Google Cloud Scheduler](https://cloud.google.com/scheduler/). Point is to demonstrate an Event Source that
+[Google Cloud Storage](https://cloud.google.com/storage/). Point is to demonstrate an Event Source that
 does not live in the [Knative Eventing Sources](http://github.com/knative/eventing-sources) that can be
 independently maintained, deployed and so forth.
 
 This particular example demonstrates how to perform basic operations such as:
 
-* Create a Cloud Scheduler Job when a Source is created
-* Delete a Job when that Source is deleted
-* Update a Job when the Source spec changes
+* Create a Cloud Storage Notification when a Google Cloud Storage object is created
+* Delete a Notification when that Source is deleted
+* Update a Notification when that Source spec changes
 
 ## Details
 
-Actual implementation contacts the Cloud Scheduler API and creates a Job
-as specified in the CloudSechedulerSource CRD Spec. Upon success a Knative service is created
-to receive calls from the Cloud Scheduler and will then forward them to the Channel.
+Actual implementation contacts the Cloud Storage API and creates a Notification
+as specified in the GCSSource CRD Spec. Upon success a Knative service is created
+to receive calls from the Cloud Storage via GCP Pub Sub and will then forward them
+to the Channel or a Knative Service.
 
 
 ## Purpose
 
-Provide an Event Source that allows subscribing to Cloud Scheduler and processing them
-in Knative.
+Provide an Event Source that allows subscribing to Cloud Storage Object Notifications and
+processing them in Knative.
 
 Another purpose is to serve as an example of how to build an Event Source using a
 [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
@@ -57,11 +58,6 @@ Another purpose is to serve as an example of how to build an Event Source using 
    ```
    
 ## Create a GCP Service Account and a corresponding secret in Kubernetes
-
-1. Enable Google Cloud Scheduler API
-      ```shell
-      gcloud services enable cloudscheduler.googleapis.com
-      ```
 
 1. Create a
    [GCP Service Account](https://console.cloud.google.com/iam-admin/serviceaccounts/project).
@@ -121,7 +117,7 @@ Another purpose is to serve as an example of how to build an Event Source using 
       ```
 
       The name `gcssource-key` and `key.json` are pre-configured values
-      in the controller which manages your Cloud Scheduler sources.
+      in the controller which manages your Cloud Storage sources.
 
 
 ## Install Cloud Storage Source
