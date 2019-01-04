@@ -50,6 +50,12 @@ Another purpose is to serve as an example of how to build an Event Source using 
 1. Setup [Knative Eventing](https://github.com/knative/docs/tree/master/eventing)
    using the `release.yaml` file. This example does not require GCP.
 
+1. Have an existing bucket in GCS (or create a new one) that you have permissions to manage. Let's set up
+   an environmental variable for that which we'll use in the rest of this document.
+   ```shell
+   export MY_GCS_BUCKET=<YOUR_BUCKET_NAME>
+   ```
+   
 ## Create a GCP Service Account and a corresponding secret in Kubernetes
 
 1. Enable Google Cloud Scheduler API
@@ -63,7 +69,7 @@ Another purpose is to serve as an example of how to build an Event Source using 
    messages, but you can also create a separate service account for receiving
    messages if you want additional privilege separation.
 
-   1. Create a new service account named `csr-source` with the following
+   1. Create a new service account named `gcs-source` with the following
       command:
       ```shell
       gcloud iam service-accounts create gcs-source
@@ -81,20 +87,26 @@ Another purpose is to serve as an example of how to build an Event Source using 
         --role roles/pubsub.editor
       ```
 
-   1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
-   First [Find the Service Account GCS uses](https://cloud.google.com/storage/docs/getting-service-account)
-   Then grant rights to publish. Assume the service account you found from above was
-   service-569794698548@gs-project-accounts.iam.gserviceaccount.com
-   ```shell
-   gcloud projects add-iam-policy-binding $PROJECT_ID   --member="serviceAccount:service-569794698548@gs-project-accounts.iam.gserviceaccount.com"   --role roles/pubsub.publisher
-   ```
-
    1. Download a new JSON private key for that Service Account. **Be sure not to
       check this key into source control!**
       ```shell
       gcloud iam service-accounts keys create gcs-source.json \
         --iam-account=gcs-source@$PROJECT_ID.iam.gserviceaccount.com
       ```
+
+   1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
+      1. First find the Service Account that GCS uses to publish to Pub Sub
+	     1. Either use the [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
+         1. Use `curl` to fetch the email:
+		 ```shell
+            curl -s -X GET -H "Authorization: Bearer `GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4
+		 ```
+      1. Then grant rights to that Service Account to publish to GCP PubSub. Assume the service account you found from above was
+   service-XYZ@gs-project-accounts.iam.gserviceaccount.com
+   ```shell
+   gcloud projects add-iam-policy-binding $PROJECT_ID   --member="serviceAccount:service-XYZ@gs-project-accounts.iam.gserviceaccount.com"   --role roles/pubsub.publisher
+   ```
+
    1. Create a namespace for where the secret is created and where our controller will run
 
       ```shell
@@ -112,13 +124,13 @@ Another purpose is to serve as an example of how to build an Event Source using 
       in the controller which manages your Cloud Scheduler sources.
 
 
-## Install Cloud Scheduler Source
+## Install Cloud Storage Source
 
 ```shell
-kubectl apply -f https://raw.githubusercontent.com/vaikas-google/csr/master/release.yaml
+kubectl apply -f https://raw.githubusercontent.com/vaikas-google/gcs/master/release.yaml
 ```
 
-## Inspect the Cloud Scheduler Source
+## Inspect the Cloud Storage Source
 
 First list the available sources, you might have others available to you, but this is the one we'll be using
 in this example
@@ -129,19 +141,19 @@ in this example
 
 You should see something like this:
 ```shell
-vaikas@penguin:~/projects/go/src/github.com/vaikas-google/csr$
 NAME                                      AGE
-cloudschedulersources.sources.aikas.org   29d
+gcssources.sources.aikas.org              13d
 ```
 
 you can then get more details about it, for example what are the available configuration options for it:
 ```shell
-kubectl get crds cloudschedulersources.sources.aikas.org -oyaml
+kubectl get crds gcssources.sources.aikas.org -oyaml
 ```
 
-And in particular the Spec section is of interest:
+And in particular the Spec section is of interest, because it shows configuration parameters and describes
+them as well as what the required parameters are:
 ```shell
- validation:
+  validation:
     openAPIV3Schema:
       properties:
         apiVersion:
@@ -152,43 +164,47 @@ And in particular the Spec section is of interest:
           type: object
         spec:
           properties:
-            body:
-              description: Optional body to send in the event
+            bucket:
+              description: GCS bucket to subscribe to. For example my-test-bucket
               type: string
+            gcpCredsSecret:
+              description: Optional credential to use for subscribing to the GCP PubSub
+                topic. If omitted, uses gcsCredsSecret. Must be a service account
+                key in JSON format (see https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+              type: object
+            gcsCredsSecret:
+              description: Credential to use for creating a GCP notification. Must
+                be a service account key in JSON format (see https://cloud.google.com/iam/docs/creating-managing-service-account-keys).
+              type: object
             googleCloudProject:
               description: Google Cloud Project ID to create the scheduler job in.
               type: string
-            httpMethod:
-              description: Optional HTTP method to use when delivering the event.
-                If omitted, uses POST
+            objectNamePrefix:
+              description: Optional prefix to only notify when objects match this
+                prefix.
               type: string
-            location:
-              description: 'Google Cloud Platform region to create the scheduler job
-                in. For example: us-central1.'
-              type: string
-            schedule:
-              description: 'Schedule in cron format. For example: ''* * * * *'' (once
-                a minute), or human readable: ''every 1 mins'''
+            payloadFormat:
+              description: Optional payload format. Either NONE or JSON_API_V1. If
+                omitted, uses JSON_API_V1.
               type: string
             serviceAccountName:
               description: Service Account to run Receive Adapter as. If omitted,
                 uses 'default'.
               type: string
             sink:
+              description: Where to sink the notificaitons to.
               type: object
-            timezone:
-              description: Optional timezone of the schedule. If omitted, uses UTC.
-              type: string
           required:
+          - gcsCredsSecret
           - googleCloudProject
-          - location
-          - schedule
+          - bucket
+          - sink
 ```
 
 
-## Create a Knative Service that will be invoked for each Scheduler job invocation
+## Create a Knative Service that will be invoked for each Cloud Storage object notification
 
-To verify the `Cloud Scheduler` is working, we will create a simple Knative
+To verify the `Cloud Storage` is working, we will create a simple Knative
 `Service` that dumps incoming messages to its log. The `service.yaml` file
 defines this basic service. Image might be different if a new version has been released.
 
@@ -196,7 +212,7 @@ defines this basic service. Image might be different if a new version has been r
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: github-message-dumper
+  name: gcs-message-dumper
 spec:
   runLatest:
     configuration:
@@ -209,57 +225,95 @@ spec:
 Enter the following command to create the service from `service.yaml`:
 
 ```shell
-kubectl --namespace default apply -f https://raw.githubusercontent.com/vaikas-google/csr/master/service.yaml
+kubectl --namespace default apply -f https://raw.githubusercontent.com/vaikas-google/gcs/master/service.yaml
 ```
 
 
-## Configure a Cloud Scheduler Source to send events directly to the service
+## Configure Cloud Storage to send events directly to the service
 
 The simplest way to consume events is to wire the Source directly into the consuming
 function. The logical picture looks like this:
 
 ![Source Directly To Function](csr-1-1.png)
 
-## Wire Cloud Scheduler Events to the function 
-Create a Cloud Scheduler instance targeting your function with the following:
+## Wire Cloud Storage events to the function 
+Create a Cloud Storage instance targeting your function with the following:
 ```shell
-curl https://raw.githubusercontent.com/vaikas-google/csr/master/one-to-one-csr.yaml | \
-sed "s/MY_GCP_PROJECT/$PROJECT_ID/g" | kubectl apply -f -
+curl https://raw.githubusercontent.com/vaikas-google/gcs/master/one-to-one-gcs.yaml | \
+sed "s/MY_GCP_PROJECT/$PROJECT_ID/g" | sed "s/MY_GCS_BUCKET/$MY_GCS_BUCKET/g" | kubectl apply -f -
 ```
 
-## Check that the Cloud Scheduler Source was created
+## Check that the Cloud Storage Source was created
 ```shell
-kubectl get cloudschedulersources
+kubectl get gcssources
 ```
 
 And you should see something like this:
 ```shell
-vaikas@penguin:~/projects/go/src/github.com/vaikas-google/csr$ kubectl get cloudschedulersources
-NAME             AGE
-scheduler-test   1m
+vaikas@penguin:~/projects/go/src/github.com/vaikas-google/gcs$ kubectl get gcssources
+NAME                AGE
+notification-test   8d
 ```
 
-## Check that the Cloud Scheduler Job was created
+And inspecting the Status field of it via:
 ```shell
-gcloud beta scheduler jobs list
-```
+vaikas@penguin:~/projects/go/src/github.com/vaikas-google/gcs$ kubectl get gcssources -oyaml
+apiVersion: v1
+items:
+- apiVersion: sources.aikas.org/v1alpha1
+  kind: GCSSource
+  metadata:
+    creationTimestamp: 2018-12-27T03:43:26Z
+    finalizers:
+    - gcs-controller
+    generation: 1
+    name: notification-test
+    namespace: default
+    resourceVersion: "12485601"
+    selfLink: /apis/sources.aikas.org/v1alpha1/namespaces/default/gcssources/notification-test
+    uid: 9176c51c-0989-11e9-8605-42010a8a0205
+  spec:
+    bucket: vaikas-knative-test-bucket
+    gcpCredsSecret:
+      key: key.json
+      name: google-cloud-key
+    gcsCredsSecret:
+      key: key.json
+      name: google-cloud-key
+    googleCloudProject: quantum-reducer-434
+    sink:
+      apiVersion: serving.knative.dev/v1alpha1
+      kind: Service
+      name: message-dumper
+  status:
+    notificationID: "5"
+    sinkUri: http://message-dumper.default.svc.cluster.local/
+    topic: gcs-67b38ee6-64a4-4867-892d-33ee53ff24d4
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
+  ```
 
-You should see something like this:
+We can see that the notificationID has been filled in indicating the GCS notification was created.
+sinkUri is the Knative Service where the events are being delivered to. topic idenfities the GCP
+Pub Sub topic that we are using as a transport mechanism between GCS and your function. 
+
+## (Optional) Check that the Cloud Storage notification was created with gsutil
 ```shell
-vaikas@penguin:~/projects/go/src/github.com/vaikas-google/csr$ gcloud beta scheduler jobs list
-ID             LOCATION     SCHEDULE (TZ)       TARGET_TYPE  STATE
-filter-source  us-central1  every 1 mins (UTC)  HTTP         ENABLED
+vaikas@vaikas:~/projects/go/src/github.com$ gsutil notification list gs://$MY_GCS_BUCKET
+projects/_/buckets/vaikas-knative-test-bucket/notificationConfigs/5
+	Cloud Pub/Sub topic: projects/quantum-reducer-434/topics/gcs-67b38ee6-64a4-4867-892d-33ee53ff24d4
 ```
 
-Then wait a couple of minutes and you should see events in your message dumper.
+Then [upload some file](https://cloud.google.com/storage/docs/uploading-objects) to your bucket to trigger
+an Object Notification.
 
-## Check that Cloud Scheduler invoked the function
-Note this might take couple of minutes after the creation while the Cloud Scheduler
-gets going
+## Check that Cloud Storage invoked the function
 ```shell
-kubectl -l 'serving.knative.dev/service=message-dumper' logs -c user-container
+kubectl -l 'serving.knative.dev/service=gcs-message-dumper' logs -c user-container
 ```
-And you should see an entry like this there
+And you should see an entry like this there (!!!NEEDS UPDATING!!!)
 ```shell
 2018/12/20 00:23:00 Received Cloud Event Context as: {CloudEventsVersion:0.1 EventID:2cd5d2ed-d2d1-94a1-bee7-d542d7ab834e EventTime:2018-12-20 00:23:00.498638175 +0000 UTC EventType:GoogleCloudScheduler EventTypeVersion: SchemaURL: ContentType:application/json Source:GCPCloudScheduler Extensions:map[]}
 2018/12/20 00:23:00 Received event data as: {"data": "test does this work"}
@@ -270,14 +324,12 @@ Where the first line is displaying the Cloud Events Context and the second line 
 ## Uninstall
 
 ```shell
-kubectl delete cloudschedulersources scheduler-test
+kubectl delete gcssources notification-test
 kubectl delete services.serving message-dumper
 ```
 
-## Check that the Cloud Scheduler Job was deleted
-```shell
-gcloud beta scheduler jobs list
-```
+# **REST OF THIS DOCUMENT NEEDS UPDATING**
+
 
 ## More complex examples
 * [Multiple functions working together](MULTIPLE_FUNCTIONS.md)

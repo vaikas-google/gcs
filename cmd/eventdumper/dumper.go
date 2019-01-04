@@ -39,7 +39,7 @@ func myFunc(ctx context.Context, e string) error {
 
 func main() {
 	m := cloudevents.NewMux()
-	err := m.Handle("GoogleCloudScheduler", myFunc)
+	err := m.Handle("google.pubsub.topic.publish", myFunc)
 	if err != nil {
 		log.Fatalf("Failed to create handler %s", err)
 	}
