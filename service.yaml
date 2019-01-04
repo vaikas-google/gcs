@@ -2,7 +2,7 @@
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: message-dumper
+  name: gcs-message-dumper
   namespace: default
 spec:
   runLatest:
@@ -10,4 +10,4 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: us.gcr.io/probable-summer-223122/eventdumper-833f921e52f6ce76eb11f89bbfcea1df@sha256:7edb9fc190dcf350f4c49c48d3ff2bf71de836ff3dc32b1d5082fd13f90edee3
+            image: us.gcr.io/probable-summer-223122/eventdumper-636adc445273619901699fad1ba5c4a2@sha256:f2c6adfdd97cff0b7376a80d8732c01d54410f7b0571adb32fe5e85ec31629b1
