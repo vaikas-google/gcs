@@ -6,15 +6,14 @@ kind: GCSSource
 metadata:
   name: notification-test
 spec:
-#  googleCloudProject: MY_GCP_PROJECT
-  googleCloudProject: quantum-reducer-434
+  googleCloudProject: MY_GCP_PROJECT
   gcsCredsSecret:  # A secret in the knative-sources namespace
     name: google-cloud-key
     key: key.json
   gcpCredsSecret:  # A secret in the knative-sources namespace
     name: google-cloud-key
     key: key.json
-  bucket: vaikas-knative-test-bucket
+  bucket: MY_GCS_BUCKET
   sink:
     apiVersion: serving.knative.dev/v1alpha1
     kind: Service
