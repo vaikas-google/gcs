@@ -18,13 +18,25 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 
+	"cloud.google.com/go/pubsub"
 	"github.com/knative/pkg/cloudevents"
 )
 
-func myFunc(ctx context.Context, e string) error {
+// This is just a subset of the fields for demonstration purposes.
+// Full object notification spec is here:
+// https://cloud.google.com/storage/docs/json_api/v1/objects#resource-representations
+type GCSObjectNotification struct {
+	Name   string `json:name,omitempty`
+	Bucket string `json:bucket,omitempty`
+	// This is listed as unsigned long but in practice seems to be a string??
+	Size string `json:size,omitempty`
+}
+
+func myFunc(ctx context.Context, msg *pubsub.Message) error {
 	// Extract only the Cloud Context from the context because that's
 	// all we care about for this example and the entire context is toooooo much...
 	ec := cloudevents.FromContext(ctx)
@@ -33,7 +45,18 @@ func myFunc(ctx context.Context, e string) error {
 	} else {
 		log.Printf("No Cloud Event Context found")
 	}
-	log.Printf("Received event data as: %+v", e)
+	if len(msg.Data) > 0 {
+		obj := &GCSObjectNotification{}
+		err := json.Unmarshal(msg.Data, obj)
+		if err != nil {
+			log.Printf("Failed to umarshal object notification data: %s\n data was %q", err, string(msg.Data))
+			return err
+		}
+		log.Printf("object notification metadata is: %+v", obj)
+	} else {
+		log.Printf("Object Notification event data is empty")
+	}
+
 	return nil
 }
 

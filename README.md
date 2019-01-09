@@ -248,7 +248,7 @@ Create a Cloud Storage instance targeting your function with the following:
 ```shell
 curl https://raw.githubusercontent.com/vaikas-google/gcs/master/one-to-one-gcs.yaml | \
 sed "s/MY_GCP_PROJECT/$PROJECT_ID/g" | sed "s/MY_GCS_BUCKET/$MY_GCS_BUCKET/g" | kubectl apply -f -
-g```
+```
 
 ## Check that the Cloud Storage Source was created
 ```shell
@@ -341,27 +341,8 @@ kubectl -l 'serving.knative.dev/service=gcs-message-dumper' logs -c user-contain
 ```
 And you should see an entry like this there
 ```shell
-2019/01/09 04:03:23 Message Dumper received a message: POST / HTTP/1.1
-Host: gcs-message-dumper.default.svc.cluster.local
-Transfer-Encoding: chunked
-Accept-Encoding: gzip
-Ce-Cloudeventsversion: 0.1
-Ce-Eventid: 352035215099852
-Ce-Eventtime: 2019-01-09T03:52:57.663Z
-Ce-Eventtype: google.pubsub.topic.publish
-Ce-Source: //pubsub.googleapis.com/quantum-reducer-434/topics/gcs-e6848b85-6190-43f5-9250-03cb2a2b8322
-Content-Type: application/json
-User-Agent: Go-http-client/1.1
-X-B3-Sampled: 1
-X-B3-Spanid: dde249a8cb02aad1
-X-B3-Traceid: dde249a8cb02aad1
-X-Forwarded-For: 127.0.0.1
-X-Forwarded-Proto: http
-X-Request-Id: 2f1b5b95-5778-95cb-ac7c-80f0742705d2
-
-5ec
-{"ID":"352035215099852","Data":"ewogICJraW5kIjogInN0b3JhZ2Ujb2JqZWN0IiwKICAiaWQiOiAidmFpa2FzLWtuYXRpdmUtdGVzdC1idWNrZXQvZHVtbXl0ZXh0ZmlsZS8xNTQ3MDA1NTk0NTg0NTAzIiwKICAic2VsZkxpbmsiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vc3RvcmFnZS92MS9iL3ZhaWthcy1rbmF0aXZlLXRlc3QtYnVja2V0L28vZHVtbXl0ZXh0ZmlsZSIsCiAgIm5hbWUiOiAiZHVtbXl0ZXh0ZmlsZSIsCiAgImJ1Y2tldCI6ICJ2YWlrYXMta25hdGl2ZS10ZXN0LWJ1Y2tldCIsCiAgImdlbmVyYXRpb24iOiAiMTU0NzAwNTU5NDU4NDUwMyIsCiAgIm1ldGFnZW5lcmF0aW9uIjogIjEiLAogICJjb250ZW50VHlwZSI6ICJhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0iLAogICJ0aW1lQ3JlYXRlZCI6ICIyMDE5LTAxLTA5VDAzOjQ2OjM0LjU4NFoiLAogICJ1cGRhdGVkIjogIjIwMTktMDEtMDlUMDM6NDY6MzQuNTg0WiIsCiAgInN0b3JhZ2VDbGFzcyI6ICJNVUxUSV9SRUdJT05BTCIsCiAgInRpbWVTdG9yYWdlQ2xhc3NVcGRhdGVkIjogIjIwMTktMDEtMDlUMDM6NDY6MzQuNTg0WiIsCiAgInNpemUiOiAiMzciLAogICJtZDVIYXNoIjogIlpablRWWldhNGJwcG5aangrV2VOdUE9PSIsCiAgIm1lZGlhTGluayI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9kb3dubG9hZC9zdG9yYWdlL3YxL2IvdmFpa2FzLWtuYXRpdmUtdGVzdC1idWNrZXQvby9kdW1teXRleHRmaWxlP2dlbmVyYXRpb249MTU0NzAwNTU5NDU4NDUwMyZhbHQ9bWVkaWEiLAogICJjcmMzMmMiOiAiRFRUMWdRPT0iLAogICJldGFnIjogIkNMZUx1ZmZrMzk4Q0VBRT0iCn0K","Attributes":{"bucketId":"vaikas-knative-test-bucket","eventTime":"2019-01-09T03:52:57.309326Z","eventType":"OBJECT_DELETE","notificationConfig":"projects/_/buckets/vaikas-knative-test-bucket/notificationConfigs/15","objectGeneration":"1547005594584503","objectId":"dummytextfile","overwrittenByGeneration":"1547005977309556","payloadFormat":"JSON_API_V1"},"PublishTime":"2019-01-09T03:52:57.663Z"}
-0
+2019/01/09 17:56:01 Received Cloud Event Context as: {CloudEventsVersion:0.1 EventID:303284831868154 EventTime:2019-01-09 17:56:00.16 +0000 UTC EventType:google.pubsub.topic.publish EventTypeVersion: SchemaURL: ContentType:application/json Source://pubsub.googleapis.com/quantum-reducer-434/topics/gcs-e29de50b-e416-44fd-9c28-2ea33764096a Extensions:map[]}
+2019/01/09 17:56:01 object notification metadata is: &{Name:dummytextfile Bucket:vaikas-knative-test-bucket Size:37}
 ```
 
 Where the headers displayed are the Cloud Events Context and last few lines are the actual Notification Details.
