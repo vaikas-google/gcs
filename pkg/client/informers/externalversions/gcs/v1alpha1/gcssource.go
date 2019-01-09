@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	time "time"
 
-	gcs_v1alpha1 "github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
+	gcsv1alpha1 "github.com/vaikas-google/gcs/pkg/apis/gcs/v1alpha1"
 	versioned "github.com/vaikas-google/gcs/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/vaikas-google/gcs/pkg/client/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/vaikas-google/gcs/pkg/client/listers/gcs/v1alpha1"
@@ -70,7 +70,7 @@ func NewFilteredGCSSourceInformer(client versioned.Interface, namespace string, 
 				return client.SourcesV1alpha1().GCSSources(namespace).Watch(options)
 			},
 		},
-		&gcs_v1alpha1.GCSSource{},
+		&gcsv1alpha1.GCSSource{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *gCSSourceInformer) defaultInformer(client versioned.Interface, resyncPe
 }
 
 func (f *gCSSourceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&gcs_v1alpha1.GCSSource{}, f.defaultInformer)
+	return f.factory.InformerFor(&gcsv1alpha1.GCSSource{}, f.defaultInformer)
 }
 
 func (f *gCSSourceInformer) Lister() v1alpha1.GCSSourceLister {
