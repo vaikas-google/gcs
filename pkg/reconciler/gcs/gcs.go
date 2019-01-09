@@ -296,11 +296,22 @@ func (c *Reconciler) reconcileNotification(gcs *v1alpha1.GCSSource) (*storage.No
 		}
 	}
 
+	customAttributes := make(map[string]string)
+	for k, v := range gcs.Spec.CustomAttributes {
+		customAttributes[k] = v
+	}
+
+	// Add our own event type here...
+	customAttributes["ce-type"] = "google.gcs"
+
 	c.Logger.Infof("Creating a notification on bucket %s", gcs.Spec.Bucket)
 	notification, err := bucket.AddNotification(ctx, &storage.Notification{
-		TopicProjectID: gcs.Spec.GoogleCloudProject,
-		TopicID:        gcs.Status.Topic,
-		PayloadFormat:  storage.JSONPayload,
+		TopicProjectID:   gcs.Spec.GoogleCloudProject,
+		TopicID:          gcs.Status.Topic,
+		PayloadFormat:    storage.JSONPayload,
+		EventTypes:       gcs.Spec.EventTypes,
+		ObjectNamePrefix: gcs.Spec.ObjectNamePrefix,
+		CustomAttributes: customAttributes,
 	})
 
 	if err != nil {
