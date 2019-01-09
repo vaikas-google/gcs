@@ -62,7 +62,7 @@ func (c *FakeGCSSources) List(opts v1.ListOptions) (result *v1alpha1.GCSSourceLi
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.GCSSourceList{}
+	list := &v1alpha1.GCSSourceList{ListMeta: obj.(*v1alpha1.GCSSourceList).ListMeta}
 	for _, item := range obj.(*v1alpha1.GCSSourceList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
@@ -119,7 +119,7 @@ func (c *FakeGCSSources) DeleteCollection(options *v1.DeleteOptions, listOptions
 // Patch applies the patch and returns the patched gCSSource.
 func (c *FakeGCSSources) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.GCSSource, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(gcssourcesResource, c.ns, name, data, subresources...), &v1alpha1.GCSSource{})
+		Invokes(testing.NewPatchSubresourceAction(gcssourcesResource, c.ns, name, pt, data, subresources...), &v1alpha1.GCSSource{})
 
 	if obj == nil {
 		return nil, err

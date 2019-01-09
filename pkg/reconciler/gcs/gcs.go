@@ -208,11 +208,16 @@ func (c *Reconciler) reconcileGCSSource(ctx context.Context, csr *v1alpha1.GCSSo
 		return nil
 	}
 
+	csr.Status.InitializeConditions()
+
 	err = c.reconcileTopic(csr)
 	if err != nil {
 		c.Logger.Infof("Failed to reconcile topic %s", err)
+		csr.Status.MarkPubSubTopicNotReady(fmt.Sprintf("Failed to create GCP PubSub Topic: %s", err), "")
 		return err
 	}
+
+	csr.Status.MarkPubSubTopicReady()
 
 	c.addFinalizer(csr)
 
@@ -222,18 +227,30 @@ func (c *Reconciler) reconcileGCSSource(ctx context.Context, csr *v1alpha1.GCSSo
 	pubsub, err := c.reconcilePubSub(csr)
 	if err != nil {
 		// TODO: Update status appropriately
-		c.Logger.Infof("Failed to reconcile service: %s", err)
+		c.Logger.Infof("Failed to reconcile GCP PubSub Source: %s", err)
+		csr.Status.MarkPubSubSourceNotReady(fmt.Sprintf("Failed to create GCP PubSub Source: %s", err), "")
 		return err
 	}
 	c.Logger.Infof("Reconciled pubsub source: %+v", pubsub)
-	c.Logger.Infof("using %s as a cluster sink", pubsub.Status.SinkURI)
+	c.Logger.Infof("using %q as a cluster sink", pubsub.Status.SinkURI)
+
+	// Check to see if pubsub source is ready
+	if !pubsub.Status.IsReady() {
+		c.Logger.Infof("GCP PubSub Source is not ready yet")
+		csr.Status.MarkPubSubSourceNotReady("underlying GCP PubSub Source is not ready", "")
+	} else {
+		csr.Status.MarkPubSubSourceReady()
+	}
 
 	notification, err := c.reconcileNotification(csr)
 	if err != nil {
 		// TODO: Update status with this...
 		c.Logger.Infof("Failed to reconcile GCS Notification: %s", err)
+		csr.Status.MarkGCSNotReady(fmt.Sprintf("Failed to create GCS notification: %s", err), "")
 		return err
 	}
+
+	csr.Status.MarkGCSReady()
 
 	c.Logger.Infof("Reconciled GCS notification: %+v", notification)
 	csr.Status.NotificationID = notification.ID

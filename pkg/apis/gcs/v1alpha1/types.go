@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/knative/pkg/apis/duck"
+	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -35,6 +37,9 @@ type GCSSource struct {
 	Spec   GCSSourceSpec   `json:"spec"`
 	Status GCSSourceStatus `json:"status"`
 }
+
+// Check that GCSSource implements the Conditions duck type.
+var _ = duck.VerifyType(&GCSSource{}, &duckv1alpha1.Conditions{})
 
 // GCSSourceSpec is the spec for a GCSSource resource
 type GCSSourceSpec struct {
@@ -87,8 +92,33 @@ type GCSSourceSpec struct {
 	Sink *corev1.ObjectReference `json:"sink,omitempty"`
 }
 
+const (
+	// GCSConditionReady has status True when the GCSSource is ready to send events.
+	GCSConditionReady = duckv1alpha1.ConditionReady
+
+	// PubSubSourceReady has status True when the underlying GCP PubSub Source is ready
+	PubSubSourceReady duckv1alpha1.ConditionType = "PubSubSourceReady"
+
+	// PubSubTopicReady has status True when the underlying GCP PubSub topic is ready
+	PubSubTopicReady duckv1alpha1.ConditionType = "PubSubTopicReady"
+
+	// GCSReady has status True when GCS has been configured properly to send Notification events
+	GCSReady duckv1alpha1.ConditionType = "GCSReady"
+)
+
+var gcsSourceCondSet = duckv1alpha1.NewLivingConditionSet(
+	PubSubSourceReady,
+	PubSubTopicReady,
+	GCSReady)
+
 // GCSSourceStatus is the status for a GCSSource resource
 type GCSSourceStatus struct {
+	// Conditions holds the state of a source at a point in time.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions duckv1alpha1.Conditions `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
 	// TODO: add conditions and other stuff here...
 	// NotificationID is the ID that GCS identifies this notification as.
 	// +optional
@@ -101,6 +131,50 @@ type GCSSourceStatus struct {
 	// SinkURI is the current active sink URI that has been configured for the GCSSource.
 	// +optional
 	SinkURI string `json:"sinkUri,omitempty"`
+}
+
+// GetCondition returns the condition currently associated with the given type, or nil.
+func (s *GCSSourceStatus) GetCondition(t duckv1alpha1.ConditionType) *duckv1alpha1.Condition {
+	return gcsSourceCondSet.Manage(s).GetCondition(t)
+}
+
+// IsReady returns true if the resource is ready overall.
+func (s *GCSSourceStatus) IsReady() bool {
+	return gcsSourceCondSet.Manage(s).IsHappy()
+}
+
+// InitializeConditions sets relevant unset conditions to Unknown state.
+func (s *GCSSourceStatus) InitializeConditions() {
+	gcsSourceCondSet.Manage(s).InitializeConditions()
+}
+
+// MarkPubSubNotSourceReady sets the condition that the underlying PubSub source is not ready and why
+func (s *GCSSourceStatus) MarkPubSubSourceNotReady(reason, messageFormat string, messageA ...interface{}) {
+	gcsSourceCondSet.Manage(s).MarkFalse(PubSubSourceReady, reason, messageFormat, messageA...)
+}
+
+// MarkPubSubSourceReady sets the condition that the underlying PubSub source is ready
+func (s *GCSSourceStatus) MarkPubSubSourceReady() {
+	gcsSourceCondSet.Manage(s).MarkTrue(PubSubSourceReady)
+}
+
+// MarkPubSubTopicNotReady sets the condition that the PubSub topic was not created and why
+func (s *GCSSourceStatus) MarkPubSubTopicNotReady(reason, messageFormat string, messageA ...interface{}) {
+	gcsSourceCondSet.Manage(s).MarkFalse(PubSubTopicReady, reason, messageFormat, messageA...)
+}
+
+// MarkPubSubTopicReady sets the condition that the underlying PubSub topic was created successfully
+func (s *GCSSourceStatus) MarkPubSubTopicReady() {
+	gcsSourceCondSet.Manage(s).MarkTrue(PubSubTopicReady)
+}
+
+// MarkGCSNotReady sets the condition that the GCS has been configured to send Notifications
+func (s *GCSSourceStatus) MarkGCSNotReady(reason, messageFormat string, messageA ...interface{}) {
+	gcsSourceCondSet.Manage(s).MarkFalse(GCSReady, reason, messageFormat, messageA...)
+}
+
+func (s *GCSSourceStatus) MarkGCSReady() {
+	gcsSourceCondSet.Manage(s).MarkTrue(GCSReady)
 }
 
 func (gcsSource *GCSSource) GetGroupVersionKind() schema.GroupVersionKind {
