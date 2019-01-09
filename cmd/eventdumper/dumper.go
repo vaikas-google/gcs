@@ -66,5 +66,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create handler %s", err)
 	}
+	// Until this goes in to release, etc. register for
+	// old pubsub event types.
+	// https://github.com/knative/eventing-sources/pull/175
+	err = m.Handle("google.pubsub.topic.publish", myFunc)
+	if err != nil {
+		log.Fatalf("Failed to create handler %s", err)
+	}
 	http.ListenAndServe(":8080", m)
 }
