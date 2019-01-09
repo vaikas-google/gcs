@@ -321,7 +321,7 @@
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   pruneopts = "NUT"
-  revision = "505ab145d0a99da450461ae2c1a9f6cd10d1f447"
+  revision = "ff983b9c42bc9fbf91556e191cc8efb585c16908"
 
 [[projects]]
   branch = "master"
@@ -338,7 +338,7 @@
     "trace",
   ]
   pruneopts = "NUT"
-  revision = "927f97764cc334a6575f4b7a1584a147864d5723"
+  revision = "1e06a53dbb7e2ed46e91183f219db23c6943c532"
 
 [[projects]]
   branch = "master"
@@ -408,7 +408,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b7ef5af07b9421973508acd2a12e1d82d948357b0a584962ed5f5dbf6bd90681"
+  digest = "1:cf4e238ef734e0794d377bbdf43e9606fb4fac82acbbd3fb744b26b9b8e7c8a8"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -424,10 +424,9 @@
     "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "d00ac6d27372a4273825635281f2dc360d4be563"
+  revision = "421f03a57a641a72b8ea4ceb640e73391675fc6f"
 
 [[projects]]
-  branch = "master"
   digest = "1:fc8d523bf8fece5a2d503279d9115848c3077d1eb2efd36268a3f30477053bff"
   name = "google.golang.org/api"
   packages = [
@@ -446,7 +445,8 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "65a46cafb132eff435c7d1e0f439cc73c8eebb85"
+  revision = "19e022d8cf43ce81f046bae8cc18c5397cc7732f"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:898bf528e5c601c4a1111586f75ab9515467ebe7a41ae849d5a839720d4e2580"
@@ -471,7 +471,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:de4d292024907a9b9cf2f419125150b60fca12f801a618d3a5a26e82859379d9"
+  digest = "1:c00cd8dc654ae46dad254a7ea728856b10b6250811f692acc93614f5632881e5"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -482,7 +482,7 @@
     "protobuf/field_mask",
   ]
   pruneopts = "NUT"
-  revision = "bd9b4fb69e2ffd37621a6caa54dcbead29b546f2"
+  revision = "ae2f86662275e140f395167f1dab7081a5bd5fa8"
 
 [[projects]]
   digest = "1:40d377bfddee53c669db275071aa08b68d021941311580d902ab7c862d8741c1"
@@ -856,6 +856,7 @@
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/signals",
     "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",
     "k8s.io/api/core/v1",
