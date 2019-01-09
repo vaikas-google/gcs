@@ -36,7 +36,7 @@ spec:
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secrets/google/key.json
-        image: us.gcr.io/probable-summer-223122/controller-8052802edb86bc81e26b390db3d93fe2@sha256:c6422fab1006493540f9a3f67ac815bbacd4c0b2c08a92ea3a3ed5a5dba36b76
+        image: us.gcr.io/probable-summer-223122/controller-8052802edb86bc81e26b390db3d93fe2@sha256:da7ecf1d4eaf0b11951fe84baab3d5b5b01a0ab14dadb67dfe02e112200fc1c0
         name: gcssource-controller
         volumeMounts:
         - mountPath: /var/secrets/google

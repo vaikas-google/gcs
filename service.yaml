@@ -10,4 +10,4 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: us.gcr.io/probable-summer-223122/eventdumper-636adc445273619901699fad1ba5c4a2@sha256:f2c6adfdd97cff0b7376a80d8732c01d54410f7b0571adb32fe5e85ec31629b1
+            image: github.com/knative/eventing-sources/cmd/message_dumper

@@ -232,7 +232,7 @@ func (c *Reconciler) reconcileGCSSource(ctx context.Context, csr *v1alpha1.GCSSo
 		return err
 	}
 	c.Logger.Infof("Reconciled pubsub source: %+v", pubsub)
-	c.Logger.Infof("using %q as a cluster sink", pubsub.Status.SinkURI)
+	c.Logger.Infof("using %q as a cluster internal sink", pubsub.Status.SinkURI)
 
 	// Check to see if pubsub source is ready
 	if !pubsub.Status.IsReady() {
@@ -314,9 +314,9 @@ func (c *Reconciler) reconcileNotification(gcs *v1alpha1.GCSSource) (*storage.No
 
 func (c *Reconciler) reconcileTopic(csr *v1alpha1.GCSSource) error {
 	if csr.Status.Topic == "" {
+		c.Logger.Infof("No topic found in status, creating a unique one")
 		// Create a UUID for the topic. prefix with gcs- to make it conformant.
 		csr.Status.Topic = fmt.Sprintf("gcs-%s", uuid.New().String())
-
 	}
 
 	ctx := context.Background()

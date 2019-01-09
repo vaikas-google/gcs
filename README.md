@@ -51,6 +51,10 @@ Another purpose is to serve as an example of how to build an Event Source using 
 1. Setup [Knative Eventing](https://github.com/knative/docs/tree/master/eventing)
    using the `release.yaml` file. This example does not require GCP.
 
+1. Setup [GCP PubSub Source](https://github.com/knative/eventing-sources/tree/master/contrib/gcppubsub/samples)
+   Just need to do Prerequisites, no need to deploy anything unless you just want to make sure that
+   everything is up and running correctly.
+
 1. Have an existing bucket in GCS (or create a new one) that you have permissions to manage. Let's set up
    an environmental variable for that which we'll use in the rest of this document.
    ```shell
@@ -70,13 +74,13 @@ Another purpose is to serve as an example of how to build an Event Source using 
       ```shell
       gcloud iam service-accounts create gcs-source
       ```
-   1. Give that Service Account the  Editor' role for storage your GCP project:
+   1. Give that Service Account the  Admin role for storage your GCP project:
       ```shell
       gcloud projects add-iam-policy-binding $PROJECT_ID \
         --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
         --role roles/storage.admin
       ```
-   1. Give that Service Account the  Editor' role for pubsub your GCP project:
+   1. Give that Service Account the  Editor role for pubsub your GCP project:
       ```shell
       gcloud projects add-iam-policy-binding $PROJECT_ID \
         --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
@@ -91,16 +95,23 @@ Another purpose is to serve as an example of how to build an Event Source using 
       ```
 
    1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
-      1. First find the Service Account that GCS uses to publish to Pub Sub
-	     1. Either use the [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
+      1. First find the Service Account that GCS uses to publish to Pub Sub (Either using UI, or using curl as shown below)
+	     1. Use the [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
+            Assume the service account you found from above was `service-XYZ@gs-project-accounts.iam.gserviceaccount.com`, you'd do:
+			```shell
+			export GCS_SERVICE_ACCOUNT=service-XYZ@gs-project-accounts.iam.gserviceaccount.com
+			```
+
          1. Use `curl` to fetch the email:
 		 ```shell
-            curl -s -X GET -H "Authorization: Bearer `GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4
+         export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4`
 		 ```
-      1. Then grant rights to that Service Account to publish to GCP PubSub. Assume the service account you found from above was
-   service-XYZ@gs-project-accounts.iam.gserviceaccount.com
+      1. Then grant rights to that Service Account to publish to GCP PubSub.
+
    ```shell
-   gcloud projects add-iam-policy-binding $PROJECT_ID   --member="serviceAccount:service-XYZ@gs-project-accounts.iam.gserviceaccount.com"   --role roles/pubsub.publisher
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
+     --role roles/pubsub.publisher
    ```
 
    1. Create a namespace for where the secret is created and where our controller will run
@@ -113,7 +124,7 @@ Another purpose is to serve as an example of how to build an Event Source using 
       to store this key in `key.json` in a secret named `gcppubsub-source-key`
 
       ```shell
-      kubectl -n gcssource-system create secret generic gcssource-key --from-file=key.json=gcs-source.json
+      kubectl create secret generic gcssource-key --from-file=key.json=gcs-source.json
       ```
 
       The name `gcssource-key` and `key.json` are pre-configured values
@@ -237,7 +248,7 @@ Create a Cloud Storage instance targeting your function with the following:
 ```shell
 curl https://raw.githubusercontent.com/vaikas-google/gcs/master/one-to-one-gcs.yaml | \
 sed "s/MY_GCP_PROJECT/$PROJECT_ID/g" | sed "s/MY_GCS_BUCKET/$MY_GCS_BUCKET/g" | kubectl apply -f -
-```
+g```
 
 ## Check that the Cloud Storage Source was created
 ```shell
@@ -272,16 +283,33 @@ items:
     bucket: vaikas-knative-test-bucket
     gcpCredsSecret:
       key: key.json
-      name: google-cloud-key
+      name: gcssource-key
     gcsCredsSecret:
       key: key.json
-      name: google-cloud-key
+      name: gcssource-key
     googleCloudProject: quantum-reducer-434
     sink:
       apiVersion: serving.knative.dev/v1alpha1
       kind: Service
       name: message-dumper
   status:
+    conditions:
+    - lastTransitionTime: 2019-01-09T01:46:54Z
+      severity: Error
+      status: "True"
+      type: GCSReady
+    - lastTransitionTime: 2019-01-09T01:46:54Z
+      severity: Error
+      status: "True"
+      type: PubSubSourceReady
+    - lastTransitionTime: 2019-01-09T01:46:53Z
+      severity: Error
+      status: "True"
+      type: PubSubTopicReady
+    - lastTransitionTime: 2019-01-09T01:46:54Z
+      severity: Error
+      status: "True"
+      type: Ready
     notificationID: "5"
     sinkUri: http://message-dumper.default.svc.cluster.local/
     topic: gcs-67b38ee6-64a4-4867-892d-33ee53ff24d4
@@ -291,6 +319,8 @@ metadata:
   selfLink: ""
   ```
 
+We can see that the Conditions 'type: Ready" is set to 'status: "True"' indicating that the notification
+was correctly created.
 We can see that the notificationID has been filled in indicating the GCS notification was created.
 sinkUri is the Knative Service where the events are being delivered to. topic idenfities the GCP
 Pub Sub topic that we are using as a transport mechanism between GCS and your function. 
@@ -309,19 +339,52 @@ an Object Notification.
 ```shell
 kubectl -l 'serving.knative.dev/service=gcs-message-dumper' logs -c user-container
 ```
-And you should see an entry like this there (!!!NEEDS UPDATING!!!)
+And you should see an entry like this there
 ```shell
-2018/12/20 00:23:00 Received Cloud Event Context as: {CloudEventsVersion:0.1 EventID:2cd5d2ed-d2d1-94a1-bee7-d542d7ab834e EventTime:2018-12-20 00:23:00.498638175 +0000 UTC EventType:GoogleCloudScheduler EventTypeVersion: SchemaURL: ContentType:application/json Source:GCPCloudScheduler Extensions:map[]}
-2018/12/20 00:23:00 Received event data as: {"data": "test does this work"}
+2019/01/09 04:03:23 Message Dumper received a message: POST / HTTP/1.1
+Host: gcs-message-dumper.default.svc.cluster.local
+Transfer-Encoding: chunked
+Accept-Encoding: gzip
+Ce-Cloudeventsversion: 0.1
+Ce-Eventid: 352035215099852
+Ce-Eventtime: 2019-01-09T03:52:57.663Z
+Ce-Eventtype: google.pubsub.topic.publish
+Ce-Source: //pubsub.googleapis.com/quantum-reducer-434/topics/gcs-e6848b85-6190-43f5-9250-03cb2a2b8322
+Content-Type: application/json
+User-Agent: Go-http-client/1.1
+X-B3-Sampled: 1
+X-B3-Spanid: dde249a8cb02aad1
+X-B3-Traceid: dde249a8cb02aad1
+X-Forwarded-For: 127.0.0.1
+X-Forwarded-Proto: http
+X-Request-Id: 2f1b5b95-5778-95cb-ac7c-80f0742705d2
+
+5ec
+{"ID":"352035215099852","Data":"ewogICJraW5kIjogInN0b3JhZ2Ujb2JqZWN0IiwKICAiaWQiOiAidmFpa2FzLWtuYXRpdmUtdGVzdC1idWNrZXQvZHVtbXl0ZXh0ZmlsZS8xNTQ3MDA1NTk0NTg0NTAzIiwKICAic2VsZkxpbmsiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vc3RvcmFnZS92MS9iL3ZhaWthcy1rbmF0aXZlLXRlc3QtYnVja2V0L28vZHVtbXl0ZXh0ZmlsZSIsCiAgIm5hbWUiOiAiZHVtbXl0ZXh0ZmlsZSIsCiAgImJ1Y2tldCI6ICJ2YWlrYXMta25hdGl2ZS10ZXN0LWJ1Y2tldCIsCiAgImdlbmVyYXRpb24iOiAiMTU0NzAwNTU5NDU4NDUwMyIsCiAgIm1ldGFnZW5lcmF0aW9uIjogIjEiLAogICJjb250ZW50VHlwZSI6ICJhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0iLAogICJ0aW1lQ3JlYXRlZCI6ICIyMDE5LTAxLTA5VDAzOjQ2OjM0LjU4NFoiLAogICJ1cGRhdGVkIjogIjIwMTktMDEtMDlUMDM6NDY6MzQuNTg0WiIsCiAgInN0b3JhZ2VDbGFzcyI6ICJNVUxUSV9SRUdJT05BTCIsCiAgInRpbWVTdG9yYWdlQ2xhc3NVcGRhdGVkIjogIjIwMTktMDEtMDlUMDM6NDY6MzQuNTg0WiIsCiAgInNpemUiOiAiMzciLAogICJtZDVIYXNoIjogIlpablRWWldhNGJwcG5aangrV2VOdUE9PSIsCiAgIm1lZGlhTGluayI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9kb3dubG9hZC9zdG9yYWdlL3YxL2IvdmFpa2FzLWtuYXRpdmUtdGVzdC1idWNrZXQvby9kdW1teXRleHRmaWxlP2dlbmVyYXRpb249MTU0NzAwNTU5NDU4NDUwMyZhbHQ9bWVkaWEiLAogICJjcmMzMmMiOiAiRFRUMWdRPT0iLAogICJldGFnIjogIkNMZUx1ZmZrMzk4Q0VBRT0iCn0K","Attributes":{"bucketId":"vaikas-knative-test-bucket","eventTime":"2019-01-09T03:52:57.309326Z","eventType":"OBJECT_DELETE","notificationConfig":"projects/_/buckets/vaikas-knative-test-bucket/notificationConfigs/15","objectGeneration":"1547005594584503","objectId":"dummytextfile","overwrittenByGeneration":"1547005977309556","payloadFormat":"JSON_API_V1"},"PublishTime":"2019-01-09T03:52:57.663Z"}
+0
 ```
 
-Where the first line is displaying the Cloud Events Context and the second line is the actual data line.
+Where the headers displayed are the Cloud Events Context and last few lines are the actual Notification Details.
 
 ## Uninstall
 
 ```shell
 kubectl delete gcssources notification-test
-kubectl delete services.serving message-dumper
+kubectl delete services.serving gcs-message-dumper
+gcloud iam service-accounts delete gcs-source@$PROJECT_ID.iam.gserviceaccount.com
+gcloud projects remove-iam-policy-binding $PROJECT_ID \
+  --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
+  --role roles/storage.admin
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
+  --role roles/pubsub.editor
+
+gcloud projects remove-iam-policy-binding $PROJECT_ID \
+  --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
+  --role roles/pubsub.publisher
+kubectl delete secrets gcssource-key
+kubectl delete services.serving gcs-message-dumper
 ```
 
 # **REST OF THIS DOCUMENT NEEDS UPDATING**
