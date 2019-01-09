@@ -424,7 +424,7 @@
     "internal/semver",
   ]
   pruneopts = "NUT"
-  revision = "421f03a57a641a72b8ea4ceb640e73391675fc6f"
+  revision = "d30e00c240341e9e2a2d9519c67bd95fde906c7b"
 
 [[projects]]
   digest = "1:fc8d523bf8fece5a2d503279d9115848c3077d1eb2efd36268a3f30477053bff"
@@ -856,7 +856,6 @@
     "github.com/knative/pkg/logging/logkey",
     "github.com/knative/pkg/signals",
     "go.uber.org/zap",
-    "go.uber.org/zap/zapcore",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",
     "k8s.io/api/core/v1",
