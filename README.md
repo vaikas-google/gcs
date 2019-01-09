@@ -74,13 +74,13 @@ Another purpose is to serve as an example of how to build an Event Source using 
       ```shell
       gcloud iam service-accounts create gcs-source
       ```
-   1. Give that Service Account the  Editor' role for storage your GCP project:
+   1. Give that Service Account the  Admin role for storage your GCP project:
       ```shell
       gcloud projects add-iam-policy-binding $PROJECT_ID \
         --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
         --role roles/storage.admin
       ```
-   1. Give that Service Account the  Editor' role for pubsub your GCP project:
+   1. Give that Service Account the  Editor role for pubsub your GCP project:
       ```shell
       gcloud projects add-iam-policy-binding $PROJECT_ID \
         --member=serviceAccount:gcs-source@$PROJECT_ID.iam.gserviceaccount.com \
@@ -95,14 +95,14 @@ Another purpose is to serve as an example of how to build an Event Source using 
       ```
 
    1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
-      1. First find the Service Account that GCS uses to publish to Pub Sub
-	     1. Either use the [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
-            Assume the service account you found from above was, you'd do:
+      1. First find the Service Account that GCS uses to publish to Pub Sub (Either using UI, or using curl as shown below)
+	     1. Use the [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
+            Assume the service account you found from above was `service-XYZ@gs-project-accounts.iam.gserviceaccount.com`, you'd do:
 			```shell
 			export GCS_SERVICE_ACCOUNT=service-XYZ@gs-project-accounts.iam.gserviceaccount.com
 			```
 
-         1. OR use `curl` to fetch the email:
+         1. Use `curl` to fetch the email:
 		 ```shell
          export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4`
 		 ```
