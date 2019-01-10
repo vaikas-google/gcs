@@ -30,10 +30,11 @@ import (
 // Full object notification spec is here:
 // https://cloud.google.com/storage/docs/json_api/v1/objects#resource-representations
 type GCSObjectNotification struct {
-	Name   string `json:name,omitempty`
-	Bucket string `json:bucket,omitempty`
+	Name   string `json:"name,omitempty"`
+	Bucket string `json:"bucket,omitempty"`
 	// This is listed as unsigned long but in practice seems to be a string??
-	Size string `json:size,omitempty`
+	Size      string `json:"size,omitempty"`
+	MediaLink string `json:"mediaLink,omitempty"`
 }
 
 func myFunc(ctx context.Context, msg *pubsub.Message) error {
