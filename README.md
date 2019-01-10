@@ -117,15 +117,25 @@ Another purpose is to serve as an example of how to build an Event Source using 
       ```
 
    1. Create a secret on the kubernetes cluster for the downloaded key. You need
-      to store this key in `key.json` in a secret named `gcppubsub-source-key`
+      to store this key in `key.json` in a secret named `gcssource-key`. This is used by the
+	  `controller` to create GCS notifications and pubsub topics.
 
       ```shell
-      kubectl create secret generic gcssource-key --from-file=key.json=gcs-source.json
+      kubectl -n gcssource-system create secret generic gcssource-key --from-file=key.json=gcs-source.json
       ```
 
       The name `gcssource-key` and `key.json` are pre-configured values
       in the controller which manages your Cloud Storage sources.
 
+
+   1. Create a secret on the kubernetes cluster for the downloaded key. You need
+      to store this key in `key.json` in a secret named `gcssource-key`. This key
+	  is used by the GCP PubSub Source to subscribe to the topics created by the
+	  `controller`.
+
+      ```shell
+      kubectl create secret generic gcssource-key --from-file=key.json=gcs-source.json
+      ```
 
 ## Install Cloud Storage Source
 

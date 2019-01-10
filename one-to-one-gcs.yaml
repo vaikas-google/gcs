@@ -7,10 +7,10 @@ metadata:
   name: notification-test
 spec:
   googleCloudProject: MY_GCP_PROJECT
-  gcsCredsSecret:  # A secret in the knative-sources namespace
+  gcsCredsSecret:  # A secret in the default namespace
     name: gcssource-key
     key: key.json
-  gcpCredsSecret:  # A secret in the knative-sources namespace
+  gcpCredsSecret:  # A secret in the default namespace
     name: gcssource-key
     key: key.json
   bucket: MY_GCS_BUCKET
