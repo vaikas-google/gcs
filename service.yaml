@@ -10,4 +10,4 @@ spec:
       revisionTemplate:
         spec:
           container:
-            image: us.gcr.io/probable-summer-223122/eventdumper-636adc445273619901699fad1ba5c4a2@sha256:b899b23f56f64a07574cf6f088e04866a2fe0fa7ad413125bba8c427c25ab875
+            image: us.gcr.io/probable-summer-223122/eventdumper-636adc445273619901699fad1ba5c4a2@sha256:2e24240b160d74a743b3533995ae97d4479863815e896849aca236c90900cf3d
