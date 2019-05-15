@@ -107,18 +107,19 @@ a [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
          `service-XYZ@gs-project-accounts.iam.gserviceaccount.com`, you'd do:
          `shell export GCS_SERVICE_ACCOUNT=service-XYZ@gs-project-accounts.iam.gserviceaccount.com`
 
-         1. Use `curl` to fetch the email:
+          1. Use `curl` to fetch the email:
+
             ```shell
             export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4`
             ```
 
-      1. Then grant rights to that Service Account to publish to GCP PubSub.
+          1. Then grant rights to that Service Account to publish to GCP PubSub.
 
-         ```shell
-         gcloud projects add-iam-policy-binding $PROJECT_ID \
-           --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
-           --role roles/pubsub.publisher
-         ```
+             ```shell
+             gcloud projects add-iam-policy-binding $PROJECT_ID \
+               --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
+               --role roles/pubsub.publisher
+             ```
 
    1. Download a new JSON private key for that Service Account. **Be sure not to
       check this key into source control!**
