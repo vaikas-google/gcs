@@ -134,12 +134,10 @@ a [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
    1. Create two secrets on the kubernetes cluster with the downloaded key:
 
       ```shell
-      # Note that the first secret may already have been created when installing
-      # Knative Eventing. The following command will overwrite it. If you don't
-      # want to overwrite it, then skip this command.
-      kubectl --namespace gcssource-system create secret generic gcs-source-key --from-file=key.json=gcs-source.json --dry-run --output yaml | kubectl apply --filename -
+      # Secret for gcssource-system:
+      kubectl --namespace gcssource-system create secret generic gcs-source-key --from-file=key.json=gcs-source.json
 
-      # The second secret should not already exist, so just try to create it.
+      # Secret for default:
       kubectl --namespace default create secret generic google-cloud-key --from-file=key.json=gcs-source.json
       ```
 
