@@ -101,25 +101,27 @@ a [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
    1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
 
       1. First find the Service Account that GCS uses to publish to Pub Sub
-         (Either using UI, or using curl as shown below) 1. Use the
-         [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
-         Assume the service account you found from above was
-         `service-XYZ@gs-project-accounts.iam.gserviceaccount.com`, you'd do:
-         `shell export GCS_SERVICE_ACCOUNT=service-XYZ@gs-project-accounts.iam.gserviceaccount.com`
+         (Either using UI, or using curl as shown below)
 
-          1. Use `curl` to fetch the email:
+         1. Use the
+            [Cloud Console or the JSON API](https://cloud.google.com/storage/docs/getting-service-account)
+            Assume the service account you found from above was
+            `service-XYZ@gs-project-accounts.iam.gserviceaccount.com`, you'd do:
+            `shell export GCS_SERVICE_ACCOUNT=service-XYZ@gs-project-accounts.iam.gserviceaccount.com`
 
-            ```shell
-            export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4`
-            ```
+         1. Use `curl` to fetch the email:
 
-          1. Then grant rights to that Service Account to publish to GCP PubSub.
+         ```shell
+         export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4`
+         ```
 
-             ```shell
-             gcloud projects add-iam-policy-binding $PROJECT_ID \
-               --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
-               --role roles/pubsub.publisher
-             ```
+      1. Then grant rights to that Service Account to publish to GCP PubSub.
+
+         ```shell
+         gcloud projects add-iam-policy-binding $PROJECT_ID \
+           --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
+           --role roles/pubsub.publisher
+         ```
 
    1. Download a new JSON private key for that Service Account. **Be sure not to
       check this key into source control!**
