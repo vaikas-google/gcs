@@ -54,7 +54,7 @@ spec:
               description: "Optional payload format. Either NONE or JSON_API_V1. If omitted, uses JSON_API_V1."
             sink:
               type: object
-              description: "Where to sink the notificaitons to."
+              description: "Where to sink the notifications to."
           required:
           - gcsCredsSecret
           - googleCloudProject

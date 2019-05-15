@@ -8,10 +8,7 @@ metadata:
 spec:
   googleCloudProject: MY_GCP_PROJECT
   gcsCredsSecret:  # A secret in the default namespace
-    name: gcssource-key
-    key: key.json
-  gcpCredsSecret:  # A secret in the default namespace
-    name: gcssource-key
+    name: google-cloud-key
     key: key.json
   bucket: MY_GCS_BUCKET
   sink:
