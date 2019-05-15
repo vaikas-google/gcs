@@ -108,41 +108,43 @@ a [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
          `shell export GCS_SERVICE_ACCOUNT=service-XYZ@gs-project-accounts.iam.gserviceaccount.com`
 
          1. Use `curl` to fetch the email:
-            `` shell export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4` ``
+            ```shell
+            export GCS_SERVICE_ACCOUNT=`curl -s -X GET -H "Authorization: Bearer \`GOOGLE_APPLICATION_CREDENTIALS=./gcs-source.json gcloud auth application-default print-access-token\`" "https://www.googleapis.com/storage/v1/projects/$PROJECT_ID/serviceAccount" | grep email_address | cut -d '"' -f 4`
+            ```
 
       1. Then grant rights to that Service Account to publish to GCP PubSub.
 
-   ```shell
-   gcloud projects add-iam-policy-binding $PROJECT_ID \
-     --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
-     --role roles/pubsub.publisher
-   ```
+         ```shell
+         gcloud projects add-iam-policy-binding $PROJECT_ID \
+           --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
+           --role roles/pubsub.publisher
+         ```
 
    1. Download a new JSON private key for that Service Account. **Be sure not to
       check this key into source control!**
 
-   ```shell
-   gcloud iam service-accounts keys create gcs-source.json \
-     --iam-account=knative-source@$PROJECT_ID.iam.gserviceaccount.com
-   ```
+      ```shell
+      gcloud iam service-accounts keys create gcs-source.json \
+       --iam-account=gcs-source@$PROJECT_ID.iam.gserviceaccount.com
+      ```
 
    1. Create two secrets on the kubernetes cluster with the downloaded key:
 
-   ```shell
-   # Note that the first secret may already have been created when installing
-   # Knative Eventing. The following command will overwrite it. If you don't
-   # want to overwrite it, then skip this command.
-   kubectl --namespace gcssource-system create secret generic gcs-source-key --from-file=key.json=gcs-source.json --dry-run --output yaml | kubectl apply --filename -
+      ```shell
+      # Note that the first secret may already have been created when installing
+      # Knative Eventing. The following command will overwrite it. If you don't
+      # want to overwrite it, then skip this command.
+      kubectl --namespace gcssource-system create secret generic gcs-source-key --from-file=key.json=gcs-source.json --dry-run --output yaml | kubectl apply --filename -
 
-   # The second secret should not already exist, so just try to create it.
-   kubectl --namespace default create secret generic google-cloud-key --from-file=key.json=gcs-source.json
-   ```
+      # The second secret should not already exist, so just try to create it.
+      kubectl --namespace default create secret generic google-cloud-key --from-file=key.json=gcs-source.json
+      ```
 
-   `gcs-source-key` and `key.json` are pre-configured values in the
-   `gcssource-controller` Deployment which manages your GCS sources.
+      `gcs-source-key` and `key.json` are pre-configured values in the
+      `gcssource-controller` Deployment which manages your GCS sources.
 
-   `google-cloud-key` and `key.json` are pre-configured values in
-   [`one-to-one-gcs.yaml`](./one-to-one-gcs.yaml).
+      `google-cloud-key` and `key.json` are pre-configured values in
+      [`one-to-one-gcs.yaml`](./one-to-one-gcs.yaml).
 
 ## Install Cloud Storage Source
 
