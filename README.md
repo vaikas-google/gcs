@@ -375,6 +375,20 @@ And you should see an entry like this there
 Where the headers displayed are the Cloud Events Context and last few lines are
 the actual Notification Details.
 
+## Configure Cloud Storage to send events to the default Broker
+
+Another option is to use Broker/Trigger to get into the eventing mesh, just
+update the sink like,
+
+```yaml
+  sink:
+    apiVersion: eventing.knative.dev/v1alpha1
+    kind: Broker
+    name: default
+```
+
+Read more about [Broker/Trigger](https://github.com/knative/eventing/tree/master/docs/broker).
+
 ## Uninstall
 
 ```shell
@@ -396,94 +410,3 @@ kubectl delete secrets gcs-source-key
 kubectl delete services.serving gcs-message-dumper
 ```
 
-# **REST OF THIS DOCUMENT NEEDS UPDATING**
-
-## More complex examples
-
-- [Multiple functions working together](MULTIPLE_FUNCTIONS.md)
-
-## Usage
-
-### Specification
-
-The specification for a scheduler job looks like:
-
-```yaml
-apiVersion: sources.aikas.org/v1alpha1
-kind: CloudSchedulerSource
-metadata:
-  name: scheduler-test
-spec:
-  googleCloudProject: quantum-reducer-434
-  location: us-central1
-  schedule: "every 1 mins"
-  body: "{test does this work}"
-  sink:
-    apiVersion: eventing.knative.dev/v1alpha1
-    kind: Channel
-    name: scheduler-demo
-```
-
-### Creation
-
-With the above in `foo.yaml`, you would create the Cloud Scheduler Job with:
-
-```shell
-kubectl create -f foo.yaml
-```
-
-### Listing
-
-You can see what Cloud Scheduler Jobs have been created:
-
-```shell
-$ kubectl get cloudschedulersources
-NAME             AGE
-scheduler-test   4m
-```
-
-### Updating
-
-You can upgrade `foo.yaml` jobs by updating the spec. For example, say you
-wanted to change the above job to send a different body, you'd update the
-foo.yaml from above like so:
-
-```yaml
-apiVersion: sources.aikas.org/v1alpha1
-kind: CloudSchedulerSource
-metadata:
-  name: scheduler-test
-spec:
-  googleCloudProject: quantum-reducer-434
-  location: us-central1
-  schedule: "every 1 mins"
-  body: "{test does this work, hopefully this does too}"
-  sink:
-    apiVersion: eventing.knative.dev/v1alpha1
-    kind: Channel
-    name: scheduler-demo
-```
-
-And then update the spec.
-
-```shell
-kubectl replace -f foo.yaml
-```
-
-Of course you can also do this in place by using:
-
-```shell
-kubectl edit cloudschedulersources scheduler-test
-```
-
-And on the next run (or so) the body send to your function will by changed to
-'{test does this work, hopefully this does too}' instead of '{test does this
-work}' like before.
-
-### Removing
-
-You can remove a Cloud Scheduler jobs via:
-
-```shell
-kubectl delete cloudschedulersources scheduler-test
-```
