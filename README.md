@@ -98,14 +98,6 @@ a [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
       kubectl create namespace gcssource-system
       ```
 
-   1. Download a new JSON private key for that Service Account. **Be sure not to
-      check this key into source control!**
-
-      ```shell
-      gcloud iam service-accounts keys create gcs-source.json \
-        --iam-account=gcs-source@$PROJECT_ID.iam.gserviceaccount.com
-      ```
-
    1. Give Google Cloud Storage permissions to publish to GCP Pub Sub.
 
       1. First find the Service Account that GCS uses to publish to Pub Sub
@@ -134,7 +126,7 @@ a [Warm Image[(https://github.com/mattmoor/warm-image) as a starting point.
      --iam-account=knative-source@$PROJECT_ID.iam.gserviceaccount.com
    ```
 
-1. Create two secrets on the kubernetes cluster with the downloaded key:
+   1. Create two secrets on the kubernetes cluster with the downloaded key:
 
    ```shell
    # Note that the first secret may already have been created when installing
