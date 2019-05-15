@@ -110,32 +110,29 @@ Another purpose is to serve as an example of how to build an Event Source using 
      --role roles/pubsub.publisher
    ```
 
-   1. Create a namespace for where the secret is created and where our controller will run
+   1. Download a new JSON private key for that Service Account. **Be sure not to
+     check this key into source control!**
+     ```shell
+     gcloud iam service-accounts keys create gcs-source.json \
+       --iam-account=knative-source@$PROJECT_ID.iam.gserviceaccount.com
+     ```
+  1. Create two secrets on the kubernetes cluster with the downloaded key:
 
-      ```shell
-      kubectl create namespace gcssource-system
-      ```
+     ```shell
+     # Note that the first secret may already have been created when installing
+     # Knative Eventing. The following command will overwrite it. If you don't
+     # want to overwrite it, then skip this command.
+     kubectl --namespace gcssource-system create secret generic gcs-source-key --from-file=key.json=gcs-source.json --dry-run --output yaml | kubectl apply --filename -
 
-   1. Create a secret on the kubernetes cluster for the downloaded key. You need
-      to store this key in `key.json` in a secret named `gcssource-key`. This is used by the
-	  `controller` to create GCS notifications and pubsub topics.
+     # The second secret should not already exist, so just try to create it.
+     kubectl --namespace default create secret generic google-cloud-key --from-file=key.json=gcs-source.json
+     ```
 
-      ```shell
-      kubectl -n gcssource-system create secret generic gcssource-key --from-file=key.json=gcs-source.json
-      ```
+     `gcs-source-key` and `key.json` are pre-configured values in the
+     `gcssource-controller` Deployment which manages your GCS sources.
 
-      The name `gcssource-key` and `key.json` are pre-configured values
-      in the controller which manages your Cloud Storage sources.
-
-
-   1. Create a secret on the kubernetes cluster for the downloaded key. You need
-      to store this key in `key.json` in a secret named `gcssource-key`. This key
-	  is used by the GCP PubSub Source to subscribe to the topics created by the
-	  `controller`.
-
-      ```shell
-      kubectl create secret generic gcssource-key --from-file=key.json=gcs-source.json
-      ```
+     `google-cloud-key` and `key.json` are pre-configured values in
+     [`one-to-one-gcs.yaml`](./one-to-one-gcs.yaml).
 
 ## Install Cloud Storage Source
 
@@ -289,10 +286,10 @@ items:
     bucket: vaikas-knative-test-bucket
     gcpCredsSecret:
       key: key.json
-      name: gcssource-key
+      name: gcs-source-key
     gcsCredsSecret:
       key: key.json
-      name: gcssource-key
+      name: gcs-source-key
     googleCloudProject: quantum-reducer-434
     sink:
       apiVersion: serving.knative.dev/v1alpha1
@@ -370,7 +367,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 gcloud projects remove-iam-policy-binding $PROJECT_ID \
   --member=serviceAccount:$GCS_SERVICE_ACCOUNT \
   --role roles/pubsub.publisher
-kubectl delete secrets gcssource-key
+kubectl delete secrets gcs-source-key
 kubectl delete services.serving gcs-message-dumper
 ```
 

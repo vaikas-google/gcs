@@ -27,4 +27,4 @@ spec:
       volumes:
       - name: google-cloud-key
         secret:
-          secretName: gcssource-key
+          secretName: gcs-source-key
