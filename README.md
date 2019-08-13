@@ -1,5 +1,7 @@
 # Knative`Google Cloud Storage Source` CRD.
 
+**DEPRECATED** This functionality has been moved to [google/knative-gcp](http://github.com/google/knative-gcp)
+
 ## Overview
 
 This repository implements an Event Source for
